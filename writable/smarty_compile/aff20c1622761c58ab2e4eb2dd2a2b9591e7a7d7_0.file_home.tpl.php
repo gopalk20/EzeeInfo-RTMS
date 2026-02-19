@@ -1,11 +1,11 @@
 <?php
-/* Smarty version 5.5.1, created on 2026-02-18 23:54:14
+/* Smarty version 5.5.1, created on 2026-02-19 01:20:52
   from 'file:home.tpl' */
 
 /* @var \Smarty\Template $_smarty_tpl */
 if ($_smarty_tpl->getCompiled()->isFresh($_smarty_tpl, array (
   'version' => '5.5.1',
-  'unifunc' => 'content_69965126efafd1_99373191',
+  'unifunc' => 'content_69966574186765_37833973',
   'has_nocache_code' => false,
   'file_dependency' => 
   array (
@@ -20,7 +20,7 @@ if ($_smarty_tpl->getCompiled()->isFresh($_smarty_tpl, array (
   array (
   ),
 ))) {
-function content_69965126efafd1_99373191 (\Smarty\Template $_smarty_tpl) {
+function content_69966574186765_37833973 (\Smarty\Template $_smarty_tpl) {
 $_smarty_current_dir = 'C:\\Users\\Public\\Documents\\php-codeigniter-smarty-mysql\\app\\templates';
 ?><!DOCTYPE html>
 <html lang="en">
