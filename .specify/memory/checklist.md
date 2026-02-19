@@ -144,8 +144,26 @@
 | Product Disable/Enable (products.is_disabled) | Done |
 | Timesheet success message, redirect to summary | Done |
 | Team Timesheet member details view | Done |
+| Approval POST method fix (getMethod returns 'POST') | Done |
+| Timesheet reject (rejectTimesheet, rejectEntry) | Done |
+| Approval page: icon buttons (✓ approve, ✗ reject) | Done |
+| Approval page: Approved Task Completions + Approved Timesheet Entries sections | Done |
+| Leave products (Holiday, Sick Leave, Planned Leave, Training) | Done |
+| products.product_type; LeaveProductsSeeder | Done |
+| TaskModel getByAssignee includes leave for all users | Done |
+| TimesheetController::log allows leave tasks (assignee_id=null) | Done |
+| Admin Dashboard (/admin/dashboard) Manager + Super Admin | Done |
+| Admin Dashboard: Overall Hours, Work Hours Summary, Resource Allocation, Pending Approvers, Financial Summary | Done |
+| Team Timesheet department filter (?team=) | Done |
+| Department filter preserved across period buttons, View, Back | Done |
+| Manage Users: team filter form fix (no duplicate input; preserve search/sort) | Done |
 | Product create/edit, Webhooks, PDF/Excel export | TODO |
+| Time Sheet Grid: removed from UI (sidebar, view, index); route still available | Done |
+| Smarty: ucfirst → capitalize fix in sheet.tpl | Done |
+| Timesheet date selection: form_action (site_url) for correct form submission | Done |
+| Grid empty state: "No time entries for this period" when period has no entries | Done |
+| Monthly period link: preserves month_value when switching | Done |
 
 ---
 
-**Version**: 1.6.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Time Sheet grid, Team Timesheet format, Reports filter, Manage Users/Products)
+**Version**: 1.8.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Timesheet date selection, grid UX fixes)

@@ -1,9 +1,28 @@
 <!-- ================================================================================
-SYNC IMPACT REPORT - Constitution v1.6.0
+SYNC IMPACT REPORT - Constitution v1.8.1
 ================================================================================
 Date: 2026-02-19
-Version Change: v1.5.0 → v1.6.0 (Time Sheet grid, Team Timesheet format, Reports date filter, Manage Users/Products enhancements)
+Version Change: v1.8.0 → v1.8.1 (Timesheet date selection, grid UX fixes)
 Ratification Date: 2026-02-19
+
+CHANGES FROM v1.8.0:
+✓ Time Sheet Grid - Removed from UI navigation: no sidebar link, no button on View Summary or index; route /timesheet/sheet remains available if accessed directly
+✓ Smarty template fix - Replaced invalid ucfirst modifier with capitalize in sheet.tpl
+✓ Date selection - Form action uses site_url() for correct submission; selected date preserved (form_action passed to view.tpl, sheet.tpl)
+✓ Grid empty state - When period has no time entries, grid shows "No time entries for this period" instead of empty task rows
+✓ Monthly period link - Preserves month_value when switching to monthly view
+
+CHANGES FROM v1.7.0:
+✓ Leave products - products.product_type; LeaveProductsSeeder (Holiday, Sick Leave, Planned Leave, Training); assignee_id=null for leave tasks; TaskModel::getByAssignee includes leave products for all users; TimesheetController::log allows leave tasks (no assignee requirement)
+✓ Admin Dashboard - /admin/dashboard for Manager + Super Admin; Overall Hours (billable vs non-billable), Work Hours Summary (monthly bars), Resource Allocation (by project incl. leave), Pending Approvers, Financial Summary
+✓ Team Timesheet department filter - Department dropdown filters by team; filter preserved across Daily/Weekly/Monthly, View, and Back links
+✓ Manage Users form fix - Removed duplicate team hidden input; team filter form preserves search/sort/dir; Department/Team label
+
+CHANGES FROM v1.6.0:
+✓ Approval POST method fix - CodeIgniter getMethod() returns 'POST' (uppercase); fixed strtoupper check in ApprovalController (approveTimesheet, approve, reject)
+✓ Timesheet reject - ApprovalController::rejectTimesheet; TimeEntryModel::rejectEntry (status=rejected); POST /approval/timesheet/reject/(:num)
+✓ Approval page layout - Pending sections (tasks, timesheet) with Approve/Reject; Approved sections (Approved Task Completions, Approved Timesheet Entries) with values in respective columns
+✓ Approval UI - Small icon buttons: green checkmark for approve, red X for reject; TimeEntryModel::getApprovedForApprover
 
 CHANGES FROM v1.5.0:
 ✓ Time Sheet grid - /timesheet/sheet; tasks as rows, days as columns; weekly view with hours per task per day; row totals, daily totals; budget progress (used/max h)
@@ -119,7 +138,7 @@ The RTMS operates on core entities, each with defined responsibilities:
 
 - **User**: username, email, first_name, last_name, phone, password (bcrypt/argon2-hashed), role_id, team_id, reporting_manager_id, is_active; profile shows Name, email, current role, team name, reporting manager
 - **Team**: id, name; users belong to a team
-- **Product**: Name, timeline, max allowed time, GitHub repo link, members, is_disabled; optional link to Project; disabled products excluded from main product list
+- **Product**: Name, timeline, max allowed time, GitHub repo link, members, is_disabled, product_type (null=normal, 'leave'=leave); optional link to Project; disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) available for all users
 - **Task**: Work units from GitHub sync (Issues + PRs); status To Do/In Progress/Completed; assignee; linked branch (one per task); optional milestone link
 - **Milestone**: Time-bounded deliverable; optional link to tasks; release status
 - **TimeEntry**: Logged time against a task; work_date, hours, is_rework flag, status (pending_approval, approved); subject to D+N policy and approval workflow; employee can edit while pending_approval
@@ -204,4 +223,4 @@ This constitution is the source of truth for all development decisions on the RT
 - Business rules BR-1 through BR-5 are enforced
 - Edge cases handled per table above
 
-**Version**: 1.6.0 | **Ratified**: 2026-02-19 | **Last Amended**: 2026-02-19 (Time Sheet grid, Team Timesheet format, Reports date filter, Manage Users/Products enhancements)
+**Version**: 1.8.1 | **Ratified**: 2026-02-19 | **Last Amended**: 2026-02-19 (Timesheet date selection, grid UX fixes)

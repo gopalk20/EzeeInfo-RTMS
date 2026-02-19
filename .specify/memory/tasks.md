@@ -296,6 +296,26 @@
 - **Task CRUD**: ProductController; Manager/Super Admin only; delete blocks if time_entries exist
 - **Vertex UI**: Light grey login; dark purple header/sidebar; dashboard cards (Timesheet, Task, Pending Approval)
 
+### Phase 9: Approval Enhancements (2026-02-19)
+
+- [x] T090 ApprovalController: Fix POST method check (getMethod() returns 'POST'; use strtoupper)
+- [x] T091 TimeEntryModel: rejectEntry; ApprovalController::rejectTimesheet
+- [x] T092 Route: POST /approval/timesheet/reject/(:num)
+- [x] T093 Approval page: icon buttons (green ✓ approve, red ✗ reject) for tasks and time entries
+- [x] T094 Approval page: Approved Task Completions section; Approved Timesheet Entries section
+- [x] T095 TimeEntryModel: getApprovedForApprover
+
+### Phase 10: Leave Products, Admin Dashboard, Department Filter (2026-02-19)
+
+- [x] T100 Migration: Add product_type to products; LeaveProductsSeeder (Holiday, Sick Leave, Planned Leave, Training)
+- [x] T101 TaskModel::getByAssignee includes tasks from products where product_type='leave' for all users
+- [x] T102 TimesheetController::log allows time entry for leave tasks (assignee_id can be null)
+- [x] T103 ProductModel: product_type in allowedFields
+- [x] T104 AdminController::dashboard; /admin/dashboard; require_manager; Overall Hours, Work Hours Summary, Resource Allocation, Pending Approvers, Financial Summary
+- [x] T105 TimeEntryModel: getBillableNonBillableHours, getMonthlyHoursSummary, getHoursByProduct, getPendingApproversList
+- [x] T106 Team Timesheet: Department filter; TimesheetController teamView accepts ?team=; filter preserved in period buttons, View link, Back link
+- [x] T107 Manage Users: Fix team filter form (remove duplicate team input; preserve search/sort/dir on department change)
+
 ---
 
-**Version**: 1.5.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Timesheet workflow, Reporting, Product/Task CRUD, Access control, Vertex UI)
+**Version**: 1.8.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Leave products, Admin Dashboard, Department filter)

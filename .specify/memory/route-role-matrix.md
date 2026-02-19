@@ -24,6 +24,14 @@
 
 ---
 
+## Manager + Super Admin
+
+| Route | Controller | Filter |
+|-------|------------|--------|
+| `/admin/dashboard` | AdminController::dashboard | auth, require_manager |
+
+---
+
 ## Super Admin Only
 
 | Route | Controller | Filter |
@@ -60,7 +68,7 @@
 | `/timesheet` | TimesheetController::index | auth |
 | `/timesheet/sheet` | TimesheetController::sheetView | auth |
 | `/timesheet/view` | TimesheetController::viewSummary | auth |
-| `/timesheet/team` | TimesheetController::teamView | auth, require_product_lead_or_manager |
+| `/timesheet/team` | TimesheetController::teamView | auth, require_product_lead_or_manager (supports ?team= department filter) |
 | `/timesheet/team/details` | TimesheetController::teamDetails | auth, require_product_lead_or_manager |
 | `/timesheet/edit/(:num)` | TimesheetController::edit | auth |
 | `POST /timesheet/update/(:num)` | TimesheetController::update | auth |
@@ -70,6 +78,7 @@
 | `POST /approval/approve/(:num)` | ApprovalController::approve | auth, require_product_lead_or_manager |
 | `POST /approval/reject/(:num)` | ApprovalController::reject | auth, require_product_lead_or_manager |
 | `POST /approval/timesheet/approve/(:num)` | ApprovalController::approveTimesheet | auth, require_product_lead_or_manager |
+| `POST /approval/timesheet/reject/(:num)` | ApprovalController::rejectTimesheet | auth, require_product_lead_or_manager |
 | `/costing` | CostingController::index | auth, require_manager |
 | `POST /costing/save` | CostingController::save | auth, require_manager |
 | `/reports` | ReportController::index | auth, require_finance_or_manager |
@@ -90,4 +99,4 @@
 
 ---
 
-**Version**: 1.6.0 | **Updated**: 2026-02-19 (Time Sheet grid, Team Timesheet format, Reports date filter, Manage Users/Products)
+**Version**: 1.8.0 | **Updated**: 2026-02-19 (Admin dashboard, department filter, leave products)

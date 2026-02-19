@@ -70,10 +70,18 @@
         .profile-table th, .profile-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
         .profile-table th { width: 180px; color: #64748b; font-weight: 500; }
         .btn {
-            display: inline-block; padding: 10px 20px; background: #6f42c1; color: white;
-            text-decoration: none; border-radius: 6px; border: none; cursor: pointer; font-size: 0.95rem;
+            display: inline-block; padding: 8px 16px; background: #6f42c1; color: white;
+            text-decoration: none; border-radius: 6px; border: none; cursor: pointer; font-size: 0.9rem;
         }
         .btn:hover { background: #5a32a3; }
+        .btn-sm {
+            padding: 4px 10px; font-size: 0.85em;
+        }
+        .btn-icon {
+            display: inline-flex; align-items: center; justify-content: center; padding: 6px; min-width: 32px; min-height: 32px;
+            font-size: 1rem; line-height: 1;
+        }
+        .btn-icon img, .btn-icon svg { width: 18px; height: 18px; }
         .btn-secondary { background: #64748b; }
         .btn-secondary:hover { background: #475569; }
         .btn-link { background: transparent; color: #6f42c1; }
@@ -129,8 +137,7 @@
         <nav class="sidebar-nav">
             <div class="sidebar-title">Main Navigation</div>
             <a href="/home" class="{if isset($nav_active) && $nav_active=='home'}active{/if}">🏠 Dashboard</a>
-            <a href="/timesheet" class="{if isset($nav_active) && $nav_active=='timesheet'}active{/if}">⏱ Timesheet</a>
-            <a href="/timesheet/sheet" class="{if isset($nav_active) && $nav_active=='sheet'}active{/if}" style="padding-left: 24px; font-size: 0.9em;">📋 Time Sheet</a>
+            <a href="/timesheet/view?period=daily" class="{if isset($nav_active) && in_array($nav_active, ['timesheet', 'view'])}active{/if}">⏱ Timesheet</a>
             <a href="/tasks" class="{if isset($nav_active) && $nav_active=='tasks'}active{/if}">📋 My Tasks</a>
             <a href="/products" class="{if isset($nav_active) && $nav_active=='products'}active{/if}">📦 Products</a>
             <a href="/milestones" class="{if isset($nav_active) && $nav_active=='milestones'}active{/if}">🎯 Milestones</a>
@@ -143,6 +150,7 @@
             {/if}
             {if isset($user_role) && in_array($user_role, ['Manager', 'Super Admin'])}
             <a href="/costing" class="{if isset($nav_active) && $nav_active=='costing'}active{/if}">💰 Costing</a>
+            <a href="/admin/dashboard" class="{if isset($nav_active) && $nav_active=='admin_dashboard'}active{/if}">📊 Admin Dashboard</a>
             {/if}
             {if isset($is_super_admin) && $is_super_admin}
             <div class="sidebar-title" style="margin-top: 16px;">Admin</div>

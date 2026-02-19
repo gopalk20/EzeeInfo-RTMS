@@ -1,8 +1,8 @@
 # Baseline Specification: Resource Timesheet Management System (RTMS)
 
 **Created**: 2026-02-19  
-**Status**: In progress (Time Sheet grid, Team Timesheet format, Reports filter, Manage Users/Products enhancements implemented)  
-**Constitution**: v1.6.0  
+**Status**: In progress (Leave products, Admin Dashboard, Department filter; Timesheet date selection fixes)  
+**Constitution**: v1.8.1  
 **Input**: Role capabilities, product workflows, task lifecycle, reporting structure
 
 ---
@@ -291,9 +291,10 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-020f**: System MUST map employee to reporting manager (reporting_manager_id); time entries routed to mapped lead/manager for approval
 - **FR-020g**: System MUST allow Product Lead to approve timesheet entries for members of products they lead
 - **FR-020h**: System MUST allow Manager to approve timesheet entries for direct reports (reporting_manager_id)
+- **FR-020h1**: System MUST allow Product Lead and Manager to reject timesheet entries (status=rejected) for their respective reports/product members
 - **FR-020i**: System MUST show consolidated timesheet (team timesheet) to Lead/Manager for their respective reports
 - **FR-020j**: System MUST provide Time Sheet grid view (/timesheet/sheet): tasks as rows, week days as columns; hours per task per day; row totals, daily totals, weekly total; budget progress (used/max h) per product
-- **FR-020k**: System MUST show Team Timesheet in resource allocation format: one row per employee with Employee Name, Department, Allocation, Billing Role, Billing Rate, Hours Spent/Allocated (progress bar), Actions (View); date pickers (daily/weekly/monthly); /timesheet/team/details for member entries
+- **FR-020k**: System MUST show Team Timesheet in resource allocation format: one row per employee with Employee Name, Department, Allocation, Billing Role, Billing Rate, Hours Spent/Allocated (progress bar), Actions (View); date pickers (daily/weekly/monthly); Department filter by team; filter preserved across period/view/back; /timesheet/team/details for member entries
 - **FR-021**: System MUST allow Manager and Product Lead to approve (task completion: Manager; timesheet: Manager for reports, Product Lead for product members)
 - **FR-022**: System MUST lock timesheet/task entries after final approval
 - **FR-023**: System MUST provide Finance with employee-wise and task-wise time consumption reports; reports filter by date range (From/To) selectable on Reports page
@@ -311,7 +312,7 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 - **User**: username, email, first_name, last_name, phone, password (hashed), role_id, team_id, reporting_manager_id, is_active
 - **Team**: id, name (team name for grouping users)
-- **Product**: Represents a deliverable or project; has name, timeline, max allowed time, GitHub repo link, members, is_disabled; disabled products excluded from main product list
+- **Product**: Represents a deliverable or project; has name, timeline, max allowed time, GitHub repo link, members, is_disabled, product_type (null=normal, 'leave'=leave); disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) have assignee_id=null tasks, available to all users for time logging
 - **Task**: Represents work unit; has status (To Do/In Progress/Completed), assignment, linked branch, time log, rework log
 - **Milestone**: Time-bounded deliverable; can group tasks; has release status
 - **Member**: User assigned to a product; role within product context
@@ -347,15 +348,17 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 | **Time Entry** | ✓ | TimesheetController; log time; work_date, hours, is_rework, status; BR-1; success message on submit; redirect to daily summary after log |
 | **Timesheet Workflow** | ✓ | status pending_approval/approved; edit before approval; timesheet/view (daily/weekly/monthly) with Time Entry Details table; timesheet/edit |
 | **Reporting Structure** | ✓ | users.reporting_manager_id; time entries routed to mapped lead/manager; profile shows reporting manager |
-| **Approval** | ✓ | Product Lead + Manager + Super Admin; task completion + timesheet approvals; ApprovalController::approveTimesheet |
-| **Team Timesheet** | ✓ | /timesheet/team; resource allocation format (Employee, Dept, Allocation, Billing, Hours Spent/Allocated); /timesheet/team/details for member entries |
+| **Approval** | ✓ | Product Lead + Manager + Super Admin; task + timesheet approve/reject; ApprovalController::approveTimesheet, rejectTimesheet; icon buttons (✓ approve, ✗ reject); Pending + Approved sections (Approved Task Completions, Approved Timesheet Entries) |
+| **Team Timesheet** | ✓ | /timesheet/team; resource allocation format (Employee, Dept, Allocation, Billing, Hours Spent/Allocated); Department filter by team; filter preserved; /timesheet/team/details for member entries |
 | **Products** | ✓ | list, view, sync; Super Admin: add/edit/delete/disable-enable (AdminController); products.is_disabled; delete blocks if users/tasks mapped |
 | **Product Access** | ✓ | Grant/revoke product_members; AdminController::productMemberAdd/Remove |
 | **Tasks** | ✓ | list; Manager/Super Admin: add/edit/delete on product view; delete blocks if time entries mapped |
-| **User Management** | ✓ | Super Admin: add user, reset password, enable/disable, modify reporting manager; Manage Users: table (Name, Email, Role, Team, Reporting Manager, Status, Edit); Edit page for Reporting Manager, Status, Password; team filter |
+| **User Management** | ✓ | Super Admin: add user, reset password, enable/disable, modify reporting manager; Manage Users: table (Name, Email, Role, Team, Reporting Manager, Status, Edit); Edit page for Reporting Manager, Status, Password; Department/Team filter (form preserves search/sort) |
 | **Vertex UI** | ✓ | Login page; layout (header, sidebar, content); dashboard cards; SmartyEngine layout vars; Team Timesheet card for Manager/Lead |
 | **Milestones, Costing** | ✓ | As before |
-| **Time Sheet Grid** | ✓ | /timesheet/sheet; weekly grid; tasks × days; row/daily/weekly totals |
+| **Admin Dashboard** | ✓ | Manager + Super Admin; /admin/dashboard; Overall Hours (billable vs non-billable), Work Hours Summary, Resource Allocation by project, Pending Approvers, Financial Summary |
+| **Leave Products** | ✓ | products.product_type; Holiday, Sick Leave, Planned Leave, Training; LeaveProductsSeeder; TaskModel getByAssignee includes leave for all; TimesheetController::log allows leave tasks |
+| **Time Sheet Grid** | ✓ | /timesheet/sheet; daily/weekly/monthly; tasks × days; row/daily/weekly totals; not linked in nav (removed from sidebar, view, index); grid shows "No time entries" when period empty; form_action for date selection |
 | **Reports** | ✓ | task-wise, employee-wise, performance; date range (From/To) filter; export CSV |
 
 ### Key Deliverables
@@ -364,7 +367,7 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **Models**: ProductModel, TaskModel, TimeEntryModel, ConfigModel, ConfigService, ApprovalModel, ResourceCostModel, MilestoneModel
 - **Controllers**: ProductController, TaskController, TimesheetController, MilestoneController, ApprovalController, CostingController, ReportController
 - **Templates**: products/list.tpl, products/view.tpl, tasks/list.tpl, timesheet/index.tpl, milestones/list.tpl, approval/pending.tpl, costing/index.tpl, reports/*
-- **Routes**: /products, /products/view/(:num), POST /products/sync/(:num), /products/(:num)/tasks/add|edit|delete, /admin/products/manage|add|edit|delete|toggle-disabled|members, /timesheet, /timesheet/sheet, /timesheet/view, /timesheet/team, /timesheet/team/details, /timesheet/edit/(:num), /approval, /approval/timesheet/approve/(:num), /admin/users|add|edit/(:num)|reporting-manager|toggle-active
+- **Routes**: /products, /products/view/(:num), POST /products/sync/(:num), /products/(:num)/tasks/add|edit|delete, /admin/dashboard (Manager+Super Admin), /admin/products/manage|add|edit|delete|toggle-disabled|members, /timesheet, /timesheet/sheet, /timesheet/view, /timesheet/team (?team=), /timesheet/team/details, /timesheet/edit/(:num), /approval, POST /approval/timesheet/approve/(:num), POST /approval/timesheet/reject/(:num), /admin/users|add|edit/(:num)|reporting-manager|toggle-active
 - **Seed**: ProductTaskSeeder, UserSeeder (Manager, Finance added)
 
 ---
@@ -375,4 +378,4 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-029**: Main layout: dark purple header (logo, hamburger, notification bell, user dropdown); left sidebar (MAIN NAVIGATION); content area; footer with copyright
 - **FR-030**: Dashboard: cards for Timesheet, Task, Pending Approval (with count for Manager/Lead)
 
-**Version**: 1.6.0 | **Created**: 2026-02-19 | **Constitution**: v1.6.0 | **Updated**: 2026-02-19 (Time Sheet grid, Team Timesheet format, Reports filter, Manage Users/Products)
+**Version**: 1.8.1 | **Created**: 2026-02-19 | **Constitution**: v1.8.1 | **Updated**: 2026-02-19 (Timesheet date selection, grid UX fixes)

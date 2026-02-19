@@ -4,13 +4,20 @@
 <h1>Team Timesheet</h1>
 
 <div style="margin-bottom: 20px;">
-    <a href="/timesheet/team?period=daily" class="btn {if $period == 'daily'}btn-secondary{/if}">Daily</a>
-    <a href="/timesheet/team?period=weekly" class="btn {if $period == 'weekly'}btn-secondary{/if}">Weekly</a>
-    <a href="/timesheet/team?period=monthly" class="btn {if $period == 'monthly'}btn-secondary{/if}">Monthly</a>
+    <a href="/timesheet/team?period=daily{if $filter_team}&team={$filter_team|escape:url}{/if}" class="btn {if $period == 'daily'}btn-secondary{/if}">Daily</a>
+    <a href="/timesheet/team?period=weekly{if $filter_team}&team={$filter_team|escape:url}{/if}" class="btn {if $period == 'weekly'}btn-secondary{/if}">Weekly</a>
+    <a href="/timesheet/team?period=monthly{if $filter_team}&team={$filter_team|escape:url}{/if}" class="btn {if $period == 'monthly'}btn-secondary{/if}">Monthly</a>
 </div>
 
-<form method="get" action="/timesheet/team" style="margin-bottom: 20px; padding: 16px; background: #f8f8f8; border-radius: 6px;">
+<form method="get" action="" id="team-ts-form" style="margin-bottom: 20px; padding: 16px; background: #f8f8f8; border-radius: 6px;">
     <input type="hidden" name="period" value="{$period|escape}">
+    <label for="team-filter" style="font-weight:500; margin-right:8px;">Department:</label>
+    <select name="team" id="team-filter" onchange="this.form.submit()" style="padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; margin-right: 16px;">
+        <option value="">— All —</option>
+        {foreach $teams as $t}
+        <option value="{$t.name|escape}" {if $filter_team == $t.name}selected{/if}>{$t.name|escape}</option>
+        {/foreach}
+    </select>
     {if $period == 'daily'}
     <label for="date">Select date:</label>
     <input type="date" name="date" id="date" value="{$from|escape}" onchange="this.form.submit()" style="margin-left: 8px;">
@@ -61,7 +68,7 @@
                 </div>
             </td>
             <td style="padding: 12px; text-align: center;">
-                <a href="/timesheet/team/details?user_id={$r.user_id}&from={$from|escape}&to={$to|escape}&period={$period|escape}" class="btn-link">View</a>
+                <a href="/timesheet/team/details?user_id={$r.user_id}&from={$from|escape}&to={$to|escape}&period={$period|escape}{if $filter_team}&team={$filter_team|escape:url}{/if}" class="btn-link btn-sm">View</a>
             </td>
         </tr>
         {/foreach}

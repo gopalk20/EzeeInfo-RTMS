@@ -11,13 +11,12 @@
 {/if}
 
 <div style="margin-bottom: 20px;">
-    <a href="/timesheet/sheet" class="btn">Time Sheet</a>
-    <a href="/timesheet/view?period=daily" class="btn {if $period == 'daily'}btn-secondary{/if}">Daily</a>
-    <a href="/timesheet/view?period=weekly" class="btn {if $period == 'weekly'}btn-secondary{/if}">Weekly</a>
-    <a href="/timesheet/view?period=monthly" class="btn {if $period == 'monthly'}btn-secondary{/if}">Monthly</a>
+    <a href="/timesheet/view?period=daily{if $from}&amp;date={$from|escape}{/if}" class="btn {if $period != 'daily'}btn-secondary{/if}">Daily</a>
+    <a href="/timesheet/view?period=weekly{if $from}&amp;date={$from|escape}{/if}" class="btn {if $period != 'weekly'}btn-secondary{/if}">Weekly</a>
+    <a href="/timesheet/view?period=monthly{if $month_value}&amp;month={$month_value|escape}{/if}" class="btn {if $period != 'monthly'}btn-secondary{/if}">Monthly</a>
 </div>
 
-<form method="get" action="/timesheet/view" style="margin-bottom: 20px; padding: 16px; background: #f8f8f8; border-radius: 6px;">
+<form method="get" action="{$form_action|escape}" style="margin-bottom: 20px; padding: 16px; background: #f8f8f8; border-radius: 6px;">
     <input type="hidden" name="period" value="{$period|escape}">
     {if $period == 'daily'}
     <label for="date">Select date:</label>
@@ -43,6 +42,7 @@
             <th style="padding: 10px; text-align: left;">Date</th>
             <th style="padding: 10px; text-align: left;">Project</th>
             <th style="padding: 10px; text-align: left;">Task</th>
+            <th style="padding: 10px; text-align: left;">Description</th>
             <th style="padding: 10px; text-align: right;">Hours</th>
         </tr>
     </thead>
@@ -52,6 +52,7 @@
             <td style="padding: 10px;">{$e.work_date|escape}</td>
             <td style="padding: 10px;">{$e.product_name|escape}</td>
             <td style="padding: 10px;">{$e.task_title|escape}</td>
+            <td style="padding: 10px;">{$e.description|default:'—'|escape}</td>
             <td style="padding: 10px; text-align: right;">{$e.hours|escape}</td>
         </tr>
         {/foreach}

@@ -293,12 +293,14 @@ No constitution violations requiring justification. Plan follows layered archite
 | Phase 1 (Products) | ✓ | ProductModel, ProductController; Super Admin CRUD via AdminController |
 | Phase 2 (Tasks) | ✓ | TaskModel, TaskController; Manager/Super Admin task CRUD on product view |
 | Phase 3 (Time Logging) | ✓ | TimeEntryModel (status); TimesheetController; edit before approval; daily/weekly/monthly view |
-| Phase 4 (Approval) | ✓ Complete | ApprovalController; task + timesheet approvals; Product Lead + Manager; reporting_manager_id routing |
+| Phase 4 (Approval) | ✓ Complete | ApprovalController; task + timesheet approve/reject; POST method fix; icon buttons; Pending + Approved sections |
 | Phase 5 (Reports) | ✓ Complete | ReportController; task-wise, employee-wise, performance; CSV export |
 | Phase 6 (Milestones, Costing) | ✓ Complete | MilestoneController; CostingController; resource_costs |
 | Phase 7 (Edge Cases) | Partial | Delete validation (user/task mapped); success/error messages |
 | **Phase 8 (New)** | ✓ Complete | reporting_manager_id, is_active; user enable/disable; profile reporting manager; product access control; Vertex UI |
+| **Phase 9 (Approval)** | ✓ Complete | Approval POST fix; timesheet reject; icon buttons; Approved Task/Timesheet sections |
+| **Phase 10 (Leave, Dashboard, Dept)** | ✓ Complete | Leave products (product_type); Admin Dashboard (Manager+Super Admin); Team Timesheet department filter; Manage Users form fix |
 
 ---
 
-**Version**: 1.5.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Timesheet workflow, Reporting, Product/Task CRUD, Access control, Vertex UI)
+**Version**: 1.8.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Leave products, Admin Dashboard, Department filter)

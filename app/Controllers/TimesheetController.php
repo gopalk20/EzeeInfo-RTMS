@@ -12,7 +12,7 @@ use App\Models\UserModel;
 
 class TimesheetController extends BaseController
 {
-    protected $helpers = ['form'];
+    protected $helpers = ['form', 'url'];
 
     /**
      * List my time entries and show form to log new time.
@@ -32,69 +32,119 @@ class TimesheetController extends BaseController
 
         $configService = new ConfigService();
 
+        $dateParam = $this->request->getGet('date');
+        $defaultWorkDate = ($dateParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateParam))
+            ? $dateParam
+            : date('Y-m-d');
+
+        $success = $session->getFlashdata('success');
+        $error   = $session->getFlashdata('error');
+        if (!$success && $this->request->getGet('saved') === '1') {
+            $success = 'Timesheet submitted successfully! Your time entry has been recorded.';
+        }
+        if (!$error && $this->request->getGet('err')) {
+            $error = $this->request->getGet('err');
+        }
+
         $smarty = new SmartyEngine();
         return $smarty->render('timesheet/index.tpl', [
             'title'              => 'My Timesheet',
             'nav_active'          => 'timesheet',
             'entries'            => $entries,
             'tasks'              => $tasks,
-            'default_work_date'   => date('Y-m-d'),
+            'default_work_date'   => $defaultWorkDate,
             'user_email'         => $session->get('user_email'),
             'user_role'          => $session->get('user_role'),
             'is_super_admin'    => $session->get('user_role') === 'Super Admin',
             'daily_hours_limit'  => $configService->getDailyHoursLimit(),
             'csrf'               => csrf_token(),
             'hash'               => csrf_hash(),
-            'success'            => $session->getFlashdata('success'),
-            'error'              => $session->getFlashdata('error'),
+            'success'            => $success,
+            'error'              => $error,
+            'base_url'           => base_url(),
+            'log_action_url'     => site_url('timesheet/log'),
         ]);
     }
 
     /**
-     * Weekly time sheet grid: tasks as rows, days as columns.
+     * Time sheet grid: tasks as rows, days/weeks as columns. Supports daily, weekly, monthly.
      */
     public function sheetView()
     {
         $session = session();
         $userId = (int) $session->get('user_id');
+        $period = $this->request->getGet('period') ?: 'weekly';
         $timeEntryModel = new TimeEntryModel();
         $taskModel = new TaskModel();
-        $productModel = new ProductModel();
 
-        $dateParam = $this->request->getGet('date');
         $today = date('Y-m-d');
-        $baseDate = ($dateParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateParam)) ? $dateParam : $today;
-        $ts = strtotime($baseDate);
-        $dow = (int) date('w', $ts);
-        $monday = date('Y-m-d', strtotime($baseDate . ' -' . ($dow ? $dow - 1 : 6) . ' days'));
-        $from = $monday;
-        $to = date('Y-m-d', strtotime($from . ' +6 days'));
-
         $dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        $weekDays = [];
-        for ($i = 0; $i < 7; $i++) {
-            $d = date('Y-m-d', strtotime($from . " +{$i} days"));
-            $dn = (int) date('w', strtotime($d));
-            $weekDays[] = [
-                'date' => $d,
-                'day_short' => $dayNames[$dn],
-                'label' => date('M j', strtotime($d)) . ' ' . $dayNames[$dn],
-            ];
+
+        if ($period === 'daily') {
+            $dateParam = $this->request->getGet('date');
+            $baseDate = ($dateParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateParam)) ? $dateParam : $today;
+            $from = $to = $baseDate;
+            $weekDays = [[
+                'date' => $baseDate,
+                'day_short' => $dayNames[(int) date('w', strtotime($baseDate))],
+                'label' => date('M j, Y', strtotime($baseDate)),
+            ]];
+        } elseif ($period === 'monthly') {
+            $monthParam = $this->request->getGet('month');
+            if ($monthParam && preg_match('/^\d{4}-\d{2}$/', $monthParam)) {
+                $from = $monthParam . '-01';
+                $to = date('Y-m-t', strtotime($from));
+            } else {
+                $from = date('Y-m-01');
+                $to = date('Y-m-t');
+            }
+            $weeksInMonth = [];
+            $current = strtotime($from);
+            $end = strtotime($to);
+            $w = 1;
+            while ($current <= $end) {
+                $weekStart = date('Y-m-d', $current);
+                $weekEnd = date('Y-m-d', min(strtotime($weekStart . ' +6 days'), $end));
+                $weeksInMonth[] = [
+                    'week_num' => $w++,
+                    'from' => $weekStart,
+                    'to' => $weekEnd,
+                    'label' => date('M j', strtotime($weekStart)) . '–' . date('j', strtotime($weekEnd)),
+                ];
+                $current = strtotime($weekStart . ' +7 days');
+            }
+            $weekDays = $weeksInMonth;
+        } else {
+            $dateParam = $this->request->getGet('date');
+            $baseDate = ($dateParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateParam)) ? $dateParam : $today;
+            $ts = strtotime($baseDate);
+            $dow = (int) date('w', $ts);
+            $monday = date('Y-m-d', strtotime($baseDate . ' -' . ($dow ? $dow - 1 : 6) . ' days'));
+            $from = $monday;
+            $to = date('Y-m-d', strtotime($from . ' +6 days'));
+            $weekDays = [];
+            for ($i = 0; $i < 7; $i++) {
+                $d = date('Y-m-d', strtotime($from . " +{$i} days"));
+                $dn = (int) date('w', strtotime($d));
+                $weekDays[] = [
+                    'date' => $d,
+                    'day_short' => $dayNames[$dn],
+                    'label' => date('M j', strtotime($d)) . ' ' . $dayNames[$dn],
+                ];
+            }
         }
 
-        $tasks = $taskModel->select('tasks.*, products.name as product_name, products.max_allowed_hours')
-            ->join('products', 'products.id = tasks.product_id')
-            ->where('tasks.assignee_id', $userId)
-            ->groupStart()->where('products.is_disabled', null)->orWhere('products.is_disabled', 0)->groupEnd()
-            ->orderBy('products.name')->orderBy('tasks.title')
-            ->findAll();
+        $tasks = $taskModel->getByAssignee($userId);
 
         $entries = $timeEntryModel->getByUser($userId, $from, $to);
 
         $hoursByTaskDate = [];
         foreach ($entries as $e) {
             $tid = (int) $e['task_id'];
-            $wd = $e['work_date'];
+            $wd = substr((string) ($e['work_date'] ?? ''), 0, 10);
+            if ($wd === '' || strlen($wd) < 10) {
+                continue;
+            }
             if (!isset($hoursByTaskDate[$tid])) {
                 $hoursByTaskDate[$tid] = [];
             }
@@ -120,18 +170,47 @@ class TimesheetController extends BaseController
             }
         }
 
+        $hoursByTaskWeek = [];
+        if ($period === 'monthly') {
+            foreach ($entries as $e) {
+                $tid = (int) $e['task_id'];
+                $wd = substr((string) ($e['work_date'] ?? ''), 0, 10);
+                if ($wd === '' || strlen($wd) < 10) {
+                    continue;
+                }
+                foreach ($weekDays as $i => $col) {
+                    $weekFrom = $col['from'] ?? '';
+                    $weekTo = $col['to'] ?? '';
+                    if ($weekFrom && $weekTo && $wd >= $weekFrom && $wd <= $weekTo) {
+                        if (!isset($hoursByTaskWeek[$tid][$i])) {
+                            $hoursByTaskWeek[$tid][$i] = 0.0;
+                        }
+                        $hoursByTaskWeek[$tid][$i] += (float) $e['hours'];
+                        break;
+                    }
+                }
+            }
+        }
+
         $rows = [];
-        $dailyTotals = array_fill(0, 7, 0.0);
+        $numCols = count($weekDays);
+        $dailyTotals = array_fill(0, $numCols, 0.0);
+
         foreach ($tasks as $t) {
             $tid = (int) $t['id'];
             $pid = (int) $t['product_id'];
-            $maxHours = $t['max_allowed_hours'] ? (float) $t['max_allowed_hours'] : null;
+            $maxHours = !empty($t['max_allowed_hours']) ? (float) $t['max_allowed_hours'] : null;
             $usedHours = $productHoursUsed[$pid] ?? 0;
             $dayHours = [];
             $rowTotal = 0.0;
-            for ($i = 0; $i < 7; $i++) {
-                $d = $weekDays[$i]['date'];
-                $h = $hoursByTaskDate[$tid][$d] ?? 0;
+            for ($i = 0; $i < $numCols; $i++) {
+                $col = $weekDays[$i];
+                $d = $col['date'] ?? null;
+                if ($d) {
+                    $h = $hoursByTaskDate[$tid][$d] ?? 0;
+                } else {
+                    $h = $hoursByTaskWeek[$tid][$i] ?? 0;
+                }
                 $dayHours[] = $h;
                 $rowTotal += $h;
                 $dailyTotals[$i] += $h;
@@ -149,19 +228,25 @@ class TimesheetController extends BaseController
                 'row_total' => $rowTotal,
             ];
         }
-        $weekTotal = array_sum($dailyTotals);
+        $periodTotal = array_sum($dailyTotals);
+        $monthValue = substr($from, 0, 7);
 
         $smarty = new SmartyEngine();
         return $smarty->render('timesheet/sheet.tpl', [
             'title'        => 'Time Sheet',
             'nav_active'   => 'sheet',
+            'period'       => $period,
             'from'         => $from,
             'to'           => $to,
+            'month_value'  => $monthValue,
+            'form_action'  => site_url('timesheet/sheet'),
+            'grid_colspan'  => count($weekDays) + 2,
             'week_days'    => $weekDays,
             'rows'         => $rows,
             'daily_totals' => $dailyTotals,
-            'week_total'   => $weekTotal,
+            'period_total' => $periodTotal,
             'tasks'        => $tasks,
+            'entries'      => $entries,
             'success'      => $session->getFlashdata('success'),
             'error'        => $session->getFlashdata('error'),
             'user_email'   => $session->get('user_email'),
@@ -180,7 +265,7 @@ class TimesheetController extends BaseController
     {
         $session = session();
         $userId = (int) $session->get('user_id');
-        $period = $this->request->getGet('period') ?: 'monthly';
+        $period = $this->request->getGet('period') ?: 'daily';
         $timeEntryModel = new TimeEntryModel();
         $today = date('Y-m-d');
 
@@ -216,10 +301,12 @@ class TimesheetController extends BaseController
         $smarty = new SmartyEngine();
         return $smarty->render('timesheet/view.tpl', [
             'title'       => 'Timesheet Summary',
+            'nav_active'  => 'view',
             'period'      => $period,
             'from'        => $from,
             'to'          => $to,
             'month_value' => $monthValue,
+            'form_action'  => site_url('timesheet/view'),
             'success'     => $session->getFlashdata('success'),
             'error'       => $session->getFlashdata('error'),
             'grouped'     => $grouped,
@@ -271,6 +358,10 @@ class TimesheetController extends BaseController
 
         $entries = $timeEntryModel->getConsolidatedForApprover($userId, $userRole, $from, $to);
 
+        $teamFilter = $this->request->getGet('team');
+        $teamModel = new \App\Models\TeamModel();
+        $teams = $teamModel->orderBy('name')->findAll();
+
         $hoursByUser = [];
         foreach ($entries as $e) {
             $uid = (int) $e['user_id'];
@@ -290,6 +381,13 @@ class TimesheetController extends BaseController
             $user = $userModel->find($uid);
             if (!$user || empty($user['is_active'])) {
                 continue;
+            }
+            if ($teamFilter !== null && $teamFilter !== '') {
+                $userTeam = $userModel->getTeam($user);
+                $userTeamName = $userTeam['name'] ?? '';
+                if ($userTeamName !== $teamFilter) {
+                    continue;
+                }
             }
             $displayName = $userModel->getDisplayName($user);
             $role = $userModel->getRole($user);
@@ -331,6 +429,8 @@ class TimesheetController extends BaseController
             'from'            => $from,
             'to'              => $to,
             'month_value'     => $monthValue,
+            'filter_team'     => $teamFilter ?? '',
+            'teams'           => $teams,
             'rows'            => $rows,
             'entries'         => $entries,
             'user_email'      => $session->get('user_email'),
@@ -377,6 +477,7 @@ class TimesheetController extends BaseController
         $from = $this->request->getGet('from') ?: date('Y-m-01');
         $to = $this->request->getGet('to') ?: date('Y-m-t');
         $period = $this->request->getGet('period') ?: 'monthly';
+        $teamFilter = $this->request->getGet('team');
 
         $memberIds = $this->getTeamMemberIds($managerId, $userRole);
         if (!in_array($targetUserId, $memberIds, true)) {
@@ -400,6 +501,7 @@ class TimesheetController extends BaseController
             'to'          => $to,
             'period'      => $period,
             'month_value' => $monthValue,
+            'filter_team' => $teamFilter ?? '',
             'user_email'  => $session->get('user_email'),
         ]);
     }
@@ -429,14 +531,15 @@ class TimesheetController extends BaseController
 
         $smarty = new SmartyEngine();
         return $smarty->render('timesheet/edit.tpl', [
-            'title'     => 'Edit Time Entry',
-            'entry'     => $entry,
-            'task'      => $task,
-            'user_email'=> $session->get('user_email'),
-            'user_role' => $session->get('user_role'),
+            'title'       => 'Edit Time Entry',
+            'entry'       => $entry,
+            'task'        => $task,
+            'back_to_sheet_date' => $entry['work_date'] ?? '',
+            'user_email'  => $session->get('user_email'),
+            'user_role'   => $session->get('user_role'),
             'is_super_admin' => $session->get('user_role') === 'Super Admin',
-            'csrf'      => csrf_token(),
-            'hash'      => csrf_hash(),
+            'csrf'        => csrf_token(),
+            'hash'        => csrf_hash(),
         ]);
     }
 
@@ -448,7 +551,7 @@ class TimesheetController extends BaseController
         $session = session();
         $userId = (int) $session->get('user_id');
 
-        if ($this->request->getMethod() !== 'post') {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
             return redirect()->to('/timesheet');
         }
 
@@ -462,26 +565,29 @@ class TimesheetController extends BaseController
         }
 
         $rules = [
-            'hours' => 'required|decimal|greater_than[0]',
+            'hours' => 'required|decimal|greater_than[0]|less_than_equal_to[24]',
         ];
         if (!$this->validate($rules)) {
             return redirect()->to("/timesheet/edit/{$id}")->with('error', implode(' ', $this->validator->getErrors()));
         }
 
         $hours = (float) $this->request->getPost('hours');
+        $description = trim((string) $this->request->getPost('description'));
         $isRework = (bool) $this->request->getPost('is_rework');
         $configService = new ConfigService();
+        $limit = min(24.0, $configService->getDailyHoursLimit());
         $dailyTotal = $timeEntryModel->getDailyTotal($userId, $entry['work_date']) - (float) $entry['hours'];
-        if ($dailyTotal + $hours > $configService->getDailyHoursLimit()) {
-            return redirect()->to("/timesheet/edit/{$id}")->with('error', "Daily total would exceed limit.");
+        if ($dailyTotal + $hours > $limit) {
+            return redirect()->to("/timesheet/edit/{$id}")->with('error', "Daily total cannot exceed {$limit} hours (current total for this day: {$dailyTotal} h).");
         }
 
         $timeEntryModel->update($id, [
-            'hours'     => $hours,
-            'is_rework' => $isRework ? 1 : 0,
+            'hours'       => $hours,
+            'description' => $description ?: null,
+            'is_rework'   => $isRework ? 1 : 0,
         ]);
 
-        return redirect()->to('/timesheet')->with('success', 'Time entry updated successfully.');
+        return redirect()->to('/timesheet?date=' . urlencode($entry['work_date']))->with('success', 'Time entry updated successfully.');
     }
 
     /**
@@ -492,17 +598,19 @@ class TimesheetController extends BaseController
         $session = session();
         $userId = (int) $session->get('user_id');
 
-        if ($this->request->getMethod() !== 'post') {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
             return redirect()->to('/timesheet');
         }
 
         $rules = [
             'task_id'   => 'required|integer',
             'work_date' => 'required|valid_date',
-            'hours'     => 'required|decimal|greater_than[0]',
+            'hours'     => 'required|decimal|greater_than[0]|less_than_equal_to[24]',
         ];
         if (!$this->validate($rules)) {
-            return redirect()->to('/timesheet')->with('error', implode(' ', $this->validator->getErrors()));
+            $errMsg = implode(' ', $this->validator->getErrors());
+            log_message('error', 'Time entry validation failed: ' . $errMsg);
+            return redirect()->to('/timesheet?err=' . urlencode($errMsg));
         }
 
         $taskId = (int) $this->request->getPost('task_id');
@@ -512,31 +620,52 @@ class TimesheetController extends BaseController
 
         $taskModel = new TaskModel();
         $task = $taskModel->find($taskId);
-        if (!$task || (int) $task['assignee_id'] !== $userId) {
-            return redirect()->to('/timesheet')->with('error', 'Invalid task or not assigned to you.');
+        if (!$task) {
+            return redirect()->to('/timesheet?err=' . urlencode('Invalid task.'));
+        }
+        $productModel = new \App\Models\ProductModel();
+        $product = $task['product_id'] ? $productModel->find($task['product_id']) : null;
+        $isLeave = $product && ($product['product_type'] ?? null) === 'leave';
+        $isAssigned = $task['assignee_id'] !== null && (int) $task['assignee_id'] === $userId;
+        if (!$isLeave && !$isAssigned) {
+            log_message('error', "Time entry task check failed: taskId={$taskId}, userId={$userId}");
+            return redirect()->to('/timesheet?err=' . urlencode('Invalid task or not assigned to you.'));
         }
         if (!empty($task['locked'])) {
-            return redirect()->to('/timesheet')->with('error', 'Cannot log time for locked/completed task.');
+            return redirect()->to('/timesheet?err=' . urlencode('Cannot log time for locked/completed task.'));
         }
 
         $configService = new ConfigService();
         $dailyTotal = (new TimeEntryModel())->getDailyTotal($userId, $workDate);
-        $limit = $configService->getDailyHoursLimit();
+        $limit = min(24.0, $configService->getDailyHoursLimit());
         if ($dailyTotal + $hours > $limit) {
-            return redirect()->to('/timesheet')->with('error', "Daily total would exceed {$limit} hours (current: {$dailyTotal}).");
+            return redirect()->to('/timesheet?err=' . urlencode("Daily total cannot exceed {$limit} hours for one day (current total: {$dailyTotal} h)."));
         }
 
         $timeEntryModel = new TimeEntryModel();
-        $timeEntryModel->insert([
-            'task_id'   => $taskId,
-            'user_id'   => $userId,
-            'work_date' => $workDate,
-            'hours'     => $hours,
-            'is_rework' => $isRework ? 1 : 0,
-            'status'    => 'pending_approval',
-        ]);
+        $description = trim((string) $this->request->getPost('description'));
 
-        $session->setFlashdata('success', 'Timesheet submitted successfully! Your time entry has been recorded.');
-        return redirect()->to('/timesheet/view?period=daily&date=' . urlencode($workDate));
+        $insertData = [
+            'task_id'     => $taskId,
+            'user_id'     => $userId,
+            'work_date'   => $workDate,
+            'hours'       => $hours,
+            'description' => $description ?: null,
+            'is_rework'   => $isRework ? 1 : 0,
+            'status'      => 'pending_approval',
+        ];
+
+        $insertId = $timeEntryModel->insert($insertData);
+        if ($insertId === false) {
+            $errors = $timeEntryModel->errors();
+            $db = \Config\Database::connect();
+            $dbError = $db->error();
+            $errMsg = !empty($errors) ? implode(' ', $errors) : ($dbError['message'] ?? 'Database error');
+            log_message('error', 'Time entry insert failed: ' . ($errMsg ?: 'unknown') . ' | Data: ' . json_encode($insertData));
+            return redirect()->to('/timesheet?err=' . urlencode('Failed to save: ' . $errMsg));
+        }
+
+        $redirectUrl = '/timesheet?saved=1&date=' . urlencode($workDate);
+        return redirect()->to($redirectUrl)->with('success', 'Timesheet submitted successfully! Your time entry has been recorded.');
     }
 }

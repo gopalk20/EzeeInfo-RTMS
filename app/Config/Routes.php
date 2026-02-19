@@ -15,8 +15,9 @@ $routes->get('profile', 'AuthController::profile', ['filter' => 'auth']);
 $routes->get('profile/reset-password', 'AuthController::resetOwnPassword', ['filter' => 'auth']);
 $routes->post('profile/reset-password', 'AuthController::resetOwnPassword', ['filter' => 'auth']);
 
-// Admin routes (Super Admin only)
+// Admin routes
 $routes->group('admin', ['filter' => 'auth'], static function (RouteCollection $routes): void {
+    $routes->get('dashboard', 'AdminController::dashboard', ['filter' => 'require_manager']);
     $routes->get('users', 'AdminController::users', ['filter' => 'require_super_admin']);
     $routes->get('users/add', 'AdminController::addUser', ['filter' => 'require_super_admin']);
     $routes->post('users/add', 'AdminController::addUser', ['filter' => 'require_super_admin']);
@@ -55,7 +56,7 @@ $routes->get('timesheet/team', 'TimesheetController::teamView', ['filter' => ['a
 $routes->get('timesheet/team/details', 'TimesheetController::teamDetails', ['filter' => ['auth', 'require_product_lead_or_manager']]);
 $routes->get('timesheet/edit/(:num)', 'TimesheetController::edit/$1', ['filter' => 'auth']);
 $routes->post('timesheet/update/(:num)', 'TimesheetController::update/$1', ['filter' => 'auth']);
-$routes->post('timesheet/log', 'TimesheetController::log', ['filter' => 'auth']);
+$routes->match(['get', 'post'], 'timesheet/log', 'TimesheetController::log', ['filter' => 'auth']);
 
 // Milestones
 $routes->get('milestones', 'MilestoneController::index', ['filter' => 'auth']);
@@ -65,6 +66,7 @@ $routes->get('approval', 'ApprovalController::index', ['filter' => ['auth', 'req
 $routes->post('approval/approve/(:num)', 'ApprovalController::approve/$1', ['filter' => ['auth', 'require_product_lead_or_manager']]);
 $routes->post('approval/reject/(:num)', 'ApprovalController::reject/$1', ['filter' => ['auth', 'require_product_lead_or_manager']]);
 $routes->post('approval/timesheet/approve/(:num)', 'ApprovalController::approveTimesheet/$1', ['filter' => ['auth', 'require_product_lead_or_manager']]);
+$routes->post('approval/timesheet/reject/(:num)', 'ApprovalController::rejectTimesheet/$1', ['filter' => ['auth', 'require_product_lead_or_manager']]);
 
 // Costing (Manager only)
 $routes->get('costing', 'CostingController::index', ['filter' => ['auth', 'require_manager']]);
