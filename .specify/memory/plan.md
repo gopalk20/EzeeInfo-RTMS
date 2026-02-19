@@ -1,0 +1,286 @@
+# Implementation Plan: RTMS Baseline
+
+**Branch**: `develop` | **Date**: 2026-02-19 | **Spec**: [.specify/memory/spec.md](.specify/memory/spec.md)  
+**Input**: Baseline specification, constitution v1.0.0, clarify.md responses
+
+---
+
+## Summary
+
+Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance), time logging with D+N policy, rework tracking, Manager-only approval, and Finance reports with export.
+
+**Technical approach**: Layered architecture (Controllers → Models/Services → Database). New schema via migrations. GitHub Webhooks for real-time status. RBAC via Filters. Configuration in database/env for BR-1, BR-2.
+
+---
+
+## Technical Context
+
+| Item | Value |
+|------|-------|
+| **Language/Version** | PHP 8.4 |
+| **Framework** | CodeIgniter 4.5.x |
+| **Templating** | Smarty 5 |
+| **Storage** | MySQL 8.x, UTF8MB4 |
+| **Testing** | PHPUnit (CodeIgniter test runner) |
+| **Target** | Web application (php spark serve / Apache) |
+| **External APIs** | GitHub REST API, GitHub Webhooks |
+| **Constraints** | Constitution Principles I–VIII; BR-1 to BR-5 |
+| **Scale** | Product-based company; multi-product, multi-member |
+
+---
+
+## Constitution Check
+
+*GATE: Must pass before Phase 0. Re-check after Phase 1.*
+
+| Principle | Status | Notes |
+|-----------|--------|-------|
+| I. Data Integrity & Auditability | ✓ | Approval locks; audit log for edits |
+| II. Configuration Over Hard-Coding | ✓ | BR-1, BR-2, D+N, working days in config |
+| III. RBAC | ✓ | Four roles; filter-based checks |
+| IV. GitHub Single Source of Truth | ✓ | Sync Issues + PRs; webhooks |
+| V. Approval Workflow Integrity | ✓ | Manager-only; sequential; auditable |
+| VI. Calculated Values Deterministic | ✓ | BR-4, BR-5; no override |
+| VII. Testability & Traceability | ✓ | Migrations; tests for critical paths |
+| VIII. Simplicity & Maintainability | ✓ | CI4 + Smarty only; no extra frameworks |
+
+**Result**: All gates pass.
+
+---
+
+## Project Structure
+
+### Documentation
+
+```text
+.specify/memory/
+├── constitution.md    # Principles and rules
+├── spec.md           # Baseline specification
+├── clarify.md        # Clarification Q&A
+├── plan.md           # This file
+└── tasks.md          # (Created by /speckit.tasks)
+```
+
+### Source Code (CodeIgniter 4 layout)
+
+```text
+app/
+├── Config/
+│   ├── Routes.php
+│   ├── Filters.php       # RBAC filters
+│   └── ...
+├── Controllers/
+│   ├── Auth/             # Login, logout (extend existing)
+│   ├── ProductController.php
+│   ├── TaskController.php
+│   ├── TimesheetController.php
+│   ├── ApprovalController.php
+│   ├── ReportController.php
+│   └── WebhookController.php   # GitHub webhooks
+├── Models/
+│   ├── UserModel.php     # (exists)
+│   ├── ProductModel.php
+│   ├── TaskModel.php
+│   ├── MilestoneModel.php
+│   ├── TimeEntryModel.php
+│   ├── ApprovalModel.php
+│   └── ...
+├── Libraries/
+│   ├── SmartyEngine.php  # (exists)
+│   ├── GitHubService.php # API + webhook handlers
+│   └── ConfigService.php # BR-1, BR-2, D+N
+├── Database/
+│   ├── Migrations/
+│   │   ├── CreateProductsTable
+│   │   ├── CreateTasksTable
+│   │   ├── CreateTimeEntriesTable
+│   │   ├── CreateApprovalsTable
+│   │   ├── CreateConfigTable
+│   │   └── ...
+│   └── Seeds/
+│       ├── RoleSeeder.php
+│       └── ConfigSeeder.php
+├── Filters/
+│   └── RoleFilter.php    # RBAC
+└── templates/            # Smarty .tpl files
+    ├── products/
+    ├── tasks/
+    ├── timesheet/
+    ├── approval/
+    └── reports/
+
+tests/
+├── Unit/
+│   └── Models/
+└── Feature/
+    └── Controllers/
+
+writable/
+├── logs/
+└── smarty_compile/
+```
+
+---
+
+## Implementation Phases
+
+### Phase 0: Foundation (Auth, Roles, Config)
+
+**Goal**: Auth and roles in place; BR-1, BR-2 configurable.
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 0.1 | Create roles table + RoleSeeder (Employee, Product Lead, Manager, Finance) | FR-001 |
+| 0.2 | Extend users table: role_id, link to roles | FR-001 |
+| 0.3 | Create config table for BR-1 (daily_hours_limit), BR-2 (D, N), working_days, standard_hours | FR-018, FR-017 |
+| 0.4 | Implement RoleFilter; apply to routes per role | FR-001 to FR-005 |
+| 0.5 | Auth: ensure session-based, CSRF, bcrypt passwords (align with existing) | Constitution |
+
+**Deliverable**: Users with roles; config keys; RBAC filter working.
+
+---
+
+### Phase 1: Products & Membership
+
+**Goal**: Product CRUD; add/remove members; timeline, max allowed time.
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 1.1 | Migration: products table (name, start_date, end_date, max_allowed_hours, github_repo_url, etc.) | FR-006 |
+| 1.2 | Migration: product_members (product_id, user_id, role_in_product) | FR-007 |
+| 1.3 | ProductModel, ProductController; create/edit product | FR-006 |
+| 1.4 | Add/remove members to product | FR-007 |
+| 1.5 | Smarty templates: product list, create, edit, member management | FR-006, FR-007 |
+| 1.6 | RBAC: Product Lead, Manager can manage products | FR-001 |
+
+**Deliverable**: Product Lead can create product, add members, set timeline and max time.
+
+---
+
+### Phase 2: GitHub Integration & Tasks
+
+**Goal**: Link repo; sync Issues + PRs; create tasks; assign; branch linking.
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 2.1 | Migration: tasks table (product_id, github_issue_id, title, status, assignee_id, linked_branch, etc.) | FR-009, FR-012 |
+| 2.2 | Migration: milestones table; task-milestone optional link | FR-009 |
+| 2.3 | GitHubService: OAuth/pat; fetch issues, PRs, branches | FR-026 |
+| 2.4 | Product "link GitHub repo": store token, sync Issues + PRs into tasks | FR-008, FR-026 |
+| 2.5 | TaskController: create task (manual or from sync), assign to employee | FR-009, FR-010 |
+| 2.6 | Branch linking: list branches from GitHub API; Employee selects; one branch per task | FR-011 |
+| 2.7 | GitHub Webhook endpoint: receive push/merge events; update task status | FR-013, FR-014 |
+| 2.8 | Reject branch link if already linked to another task | Edge case |
+| 2.9 | Sync failure: disable sync, log error, surface to admin | FR-026, Q6.1 |
+
+**Deliverable**: Tasks from GitHub; Employee links branch; status auto-updates via webhooks.
+
+---
+
+### Phase 3: Time Logging & Rework
+
+**Goal**: Log time; D+N policy; rework tagging; BR-1, BR-2, BR-4.
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 3.1 | Migration: time_entries (task_id, user_id, date, hours, is_rework, etc.) | FR-016 |
+| 3.2 | TimesheetController: log time; Employee marks is_rework when logging | FR-016, FR-019 |
+| 3.3 | D+N policy: block edit if date > work_date + N days (config) | FR-017 |
+| 3.4 | BR-1: validate daily total ≤ config limit on save | FR-018 |
+| 3.5 | BR-3: block edit of time entries for completed/approved tasks | FR-015 |
+| 3.6 | Rework % calculation: (Rework Hours / Total Hours) × 100 | FR-019, BR-4 |
+| 3.7 | Rework request: status change (e.g. "Rework Requested"); Employee notified via UI | FR-020 |
+
+**Deliverable**: Time logging with D+N; rework tagging; BR-1, BR-2, BR-4 enforced.
+
+---
+
+### Phase 4: Approval Workflow
+
+**Goal**: Manager approves; lock entries; audit trail.
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 4.1 | Migration: approvals table (task_id, approver_id, approved_at, status) | FR-021 |
+| 4.2 | ApprovalController: Manager-only approve action | FR-021 |
+| 4.3 | On approve: lock task and related time entries; record approver, timestamp | FR-022 |
+| 4.4 | Rejection: return to previous state; log feedback | Constitution V |
+| 4.5 | RBAC: Product Lead, Employee cannot approve | FR-001 |
+
+**Deliverable**: Manager approves; entries locked; audit trail.
+
+---
+
+### Phase 5: Reports & Finance
+
+**Goal**: Finance views reports; export CSV/PDF/Excel.
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 5.1 | ReportController: task-wise time, employee-wise time, rework impact | FR-023, FR-024 |
+| 5.2 | RBAC: Finance, Manager can access reports; Product Lead cannot see costing | FR-005 |
+| 5.3 | Export: CSV, PDF, Excel | FR-024 |
+| 5.4 | Efficiency vs time spent (aggregate metrics) | FR-025 |
+
+**Deliverable**: Finance views and exports reports.
+
+---
+
+### Phase 6: Edge Cases & Polish
+
+| Task | Description |
+|------|-------------|
+| 6.1 | Employee removed from product: reassign tasks to Product Lead | Q6.3 |
+| 6.2 | Max allowed time exceeded: warn, do not block | Q2.1 |
+| 6.3 | Timeline exceeded: document as TBD or implement warning (per product) | Q6.2 |
+| 6.4 | Audit log: record before/after for editable changes | Constitution I |
+
+---
+
+## Data Model (High-Level)
+
+```text
+users (existing) + role_id
+roles (Employee, Product Lead, Manager, Finance)
+config (key, value) — BR-1, BR-2, working_days, standard_hours
+products (name, start_date, end_date, max_allowed_hours, github_repo_url, github_token_encrypted)
+product_members (product_id, user_id)
+tasks (product_id, github_issue_id, title, status, assignee_id, linked_branch, milestone_id)
+milestones (product_id, name, due_date, release_status)
+time_entries (task_id, user_id, work_date, hours, is_rework, created_at)
+approvals (task_id, approver_id, approved_at, status)
+audit_log (entity, entity_id, user_id, action, before, after, created_at)
+```
+
+---
+
+## Assumptions
+
+| # | Assumption | Risk |
+|---|------------|------|
+| A1 | Timeline exceeded (Q6.2): Implement "warn only" for MVP | Low |
+| A2 | Multi-level approval: Start with single Manager approval; add levels later if needed | Low |
+| A3 | Product = Project for Finance reports (Q2.2: Product ≠ Project TBD) | Medium |
+| A4 | GitHub Webhook requires public URL or ngrok for local dev | Low |
+| A5 | Existing UserModel/Users table can be extended with role_id | Low |
+
+---
+
+## Dependencies
+
+- PHP 8.4 with extensions: pdo_mysql, curl, json, mbstring
+- MySQL 8.x
+- GitHub App or PAT with repo scope (Issues, PRs, Webhooks)
+- Composer packages: possibly `knplabs/github-api` or similar for GitHub; export libs for PDF/Excel
+
+---
+
+## Complexity Tracking
+
+No constitution violations requiring justification. Plan follows layered architecture (Controllers → Models → DB) and tech stack (PHP, CI4, Smarty, MySQL).
+
+---
+
+**Next step**: Run `/speckit.tasks` to generate granular tasks, or begin Phase 0 implementation.
+
+**Version**: 1.0.0 | **Created**: 2026-02-19
