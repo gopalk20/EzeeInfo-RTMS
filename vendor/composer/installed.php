@@ -3,7 +3,7 @@
         'name' => 'rtms/resource-timesheet-management',
         'pretty_version' => 'dev-develop',
         'version' => 'dev-develop',
-        'reference' => '306731e5858716285f139b8eb8ce23d7287c6955',
+        'reference' => 'b57ed91f3a2ee05d3197c49eb3ff069629d52830',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -412,7 +412,7 @@
         'rtms/resource-timesheet-management' => array(
             'pretty_version' => 'dev-develop',
             'version' => 'dev-develop',
-            'reference' => '306731e5858716285f139b8eb8ce23d7287c6955',
+            'reference' => 'b57ed91f3a2ee05d3197c49eb3ff069629d52830',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -561,6 +561,15 @@
             'install_path' => __DIR__ . '/../sebastian/version',
             'aliases' => array(),
             'dev_requirement' => true,
+        ),
+        'shuchkin/simplexlsx' => array(
+            'pretty_version' => '1.1.16',
+            'version' => '1.1.16.0',
+            'reference' => '892d449f29d8071e74d9fba00dff832d2627662c',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../shuchkin/simplexlsx',
+            'aliases' => array(),
+            'dev_requirement' => false,
         ),
         'symfony/console' => array(
             'pretty_version' => 'v8.0.4',

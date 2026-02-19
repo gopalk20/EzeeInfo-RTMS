@@ -35,11 +35,38 @@ class ApprovalController extends BaseController
 
         $timeEntries = $timeEntryModel->getPendingForApprover($userId, $userRole);
 
+        // Approved tasks (locked, approved by this user)
+        $approvedTasksRaw = $db->table('approvals')
+            ->select('tasks.id, tasks.title, tasks.status, products.name as product_name, users.email as assignee_email, approvals.approved_at')
+            ->join('tasks', 'tasks.id = approvals.task_id')
+            ->join('products', 'products.id = tasks.product_id')
+            ->join('users', 'users.id = tasks.assignee_id', 'left')
+            ->where('tasks.locked', 1)
+            ->where('approvals.status', 'approved')
+            ->where('approvals.approver_id', $userId)
+            ->orderBy('approvals.approved_at', 'DESC')
+            ->limit(100)
+            ->get()
+            ->getResultArray();
+        $seen = [];
+        $approvedTasks = [];
+        foreach ($approvedTasksRaw as $t) {
+            if (!isset($seen[$t['id']])) {
+                $seen[$t['id']] = true;
+                $approvedTasks[] = $t;
+            }
+        }
+        $approvedTasks = array_slice($approvedTasks, 0, 50);
+
+        $approvedTimeEntries = $timeEntryModel->getApprovedForApprover($userId, $userRole);
+
         $smarty = new SmartyEngine();
         return $smarty->render('approval/pending.tpl', [
-            'title'          => 'Pending Approvals',
-            'tasks'          => $tasks,
-            'time_entries'   => $timeEntries,
+            'title'                => 'Pending Approvals',
+            'tasks'                => $tasks,
+            'time_entries'        => $timeEntries,
+            'approved_tasks'       => $approvedTasks,
+            'approved_time_entries'=> $approvedTimeEntries,
             'user_email'     => $session->get('user_email'),
             'user_role'      => $userRole,
             'is_super_admin'=> $userRole === 'Super Admin',
@@ -52,7 +79,7 @@ class ApprovalController extends BaseController
 
     public function approveTimesheet(int $entryId)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
             return redirect()->to('/approval');
         }
         $userId = (int) session()->get('user_id');
@@ -71,12 +98,33 @@ class ApprovalController extends BaseController
         return redirect()->to('/approval')->with('success', 'Time entry approved.');
     }
 
+    public function rejectTimesheet(int $entryId)
+    {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
+            return redirect()->to('/approval');
+        }
+        $userId = (int) session()->get('user_id');
+        $userRole = session()->get('user_role');
+        $timeEntryModel = new TimeEntryModel();
+        $entry = $timeEntryModel->find($entryId);
+        if (!$entry || ($entry['status'] ?? '') !== 'pending_approval') {
+            return redirect()->to('/approval')->with('error', 'Time entry not found or already processed.');
+        }
+        $canApprove = $timeEntryModel->getPendingForApprover($userId, $userRole);
+        $canApproveIds = array_column($canApprove, 'id');
+        if (!in_array($entryId, $canApproveIds, true)) {
+            return redirect()->to('/approval')->with('error', 'You cannot reject this time entry.');
+        }
+        $timeEntryModel->rejectEntry($entryId, $userId);
+        return redirect()->to('/approval')->with('success', 'Time entry rejected.');
+    }
+
     public function approve($taskId)
     {
         $session = session();
         $userId = (int) $session->get('user_id');
 
-        if ($this->request->getMethod() !== 'post') {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
             return redirect()->to('/approval');
         }
 
@@ -107,7 +155,7 @@ class ApprovalController extends BaseController
         $session = session();
         $userId = (int) $session->get('user_id');
 
-        if ($this->request->getMethod() !== 'post') {
+        if (strtoupper($this->request->getMethod()) !== 'POST') {
             return redirect()->to('/approval');
         }
 

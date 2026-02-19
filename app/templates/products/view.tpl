@@ -54,10 +54,10 @@
             <td style="padding: 10px;">{$t.assignee_email|default:'—'|escape}</td>
             {if $can_manage_tasks}
             <td style="padding: 10px;">
-                <a href="/products/{$product.id}/tasks/edit/{$t.id}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.85em;">Edit</a>
+                <a href="/products/{$product.id}/tasks/edit/{$t.id}" class="btn btn-secondary btn-sm">Edit</a>
                 <form method="post" action="/products/{$product.id}/tasks/delete/{$t.id}" style="display:inline;" onsubmit="return confirm('Delete this task?');">
                     <input type="hidden" name="{$csrf}" value="{$hash}">
-                    <button type="submit" class="btn" style="padding: 4px 10px; font-size: 0.85em; background:#c00;">Delete</button>
+                    <button type="submit" class="btn btn-sm" style="background:#c00;">Delete</button>
                 </form>
             </td>
             {/if}

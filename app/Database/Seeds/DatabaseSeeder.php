@@ -16,5 +16,7 @@ class DatabaseSeeder extends Seeder
         $this->call(ConfigSeeder::class);
         $this->call(UserSeeder::class);
         $this->call(UserBackfillSeeder::class);
+        $this->call(EmployeeImportSeeder::class); // Replaces dummy users with Excel data; no-op if file missing
+        $this->call(ProductTaskSeeder::class);
     }
 }

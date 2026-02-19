@@ -11,7 +11,7 @@ class ProductModel extends Model
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
     protected $useTimestamps   = true;
-    protected $allowedFields   = ['name', 'start_date', 'end_date', 'max_allowed_hours', 'github_repo_url', 'product_lead_id', 'is_disabled'];
+    protected $allowedFields   = ['name', 'start_date', 'end_date', 'max_allowed_hours', 'github_repo_url', 'product_lead_id', 'is_disabled', 'product_type'];
 
     public function getMembers(int $productId): array
     {

@@ -17,8 +17,12 @@
         <input type="number" name="hours" id="hours" step="0.25" min="0.25" max="24" value="{$entry.hours|escape}" required>
     </div>
     <div class="form-group">
+        <label for="description">Description</label>
+        <textarea name="description" id="description" rows="2">{$entry.description|default:''|escape}</textarea>
+    </div>
+    <div class="form-group">
         <label><input type="checkbox" name="is_rework" value="1" {if $entry.is_rework}checked{/if}> Mark as rework</label>
     </div>
-    <p><button type="submit" class="btn">Save Changes</button> <a href="/timesheet" class="btn btn-secondary">Cancel</a></p>
+    <p><button type="submit" class="btn">Save Changes</button> <a href="/timesheet{if $back_to_sheet_date}?date={$back_to_sheet_date|escape}{/if}" class="btn btn-secondary">Cancel</a></p>
 </form>
 {/block}

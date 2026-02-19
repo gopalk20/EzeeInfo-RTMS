@@ -2,15 +2,90 @@
 
 namespace App\Controllers;
 
+use App\Libraries\ConfigService;
 use App\Libraries\SmartyEngine;
 use App\Models\UserModel;
 use App\Models\RoleModel;
 use App\Models\TeamModel;
 use App\Models\ProductModel;
+use App\Models\TimeEntryModel;
+use App\Models\ResourceCostModel;
 
 class AdminController extends BaseController
 {
     protected $helpers = ['form'];
+
+    /**
+     * Admin dashboard: Overall Hours, Work Hours Summary, Resource Allocation, Pending Approvers, Financial Summary.
+     * Available to Manager and Super Admin.
+     */
+    public function dashboard()
+    {
+        $session = session();
+        $userRole = $session->get('user_role');
+        if (!in_array($userRole, ['Manager', 'Super Admin'], true)) {
+            return redirect()->to('/home');
+        }
+
+        $userId = (int) $session->get('user_id');
+        $from = date('Y-m-01');
+        $to = date('Y-m-t');
+        $timeEntryModel = new TimeEntryModel();
+
+        $pendingCount = 0;
+        $pendingEntries = $timeEntryModel->getPendingForApprover($userId, $userRole);
+        $pendingTasks = \Config\Database::connect()->table('tasks')
+            ->where('status', 'Completed')->where('locked', 0)->countAllResults();
+        $pendingCount = count($pendingEntries) + $pendingTasks;
+        $configService = new ConfigService();
+        $costModel = new ResourceCostModel();
+
+        $overall = $timeEntryModel->getBillableNonBillableHours($from, $to);
+        $monthlyHours = $timeEntryModel->getMonthlyHoursSummary(7);
+        $hoursByProduct = $timeEntryModel->getHoursByProduct($from, $to);
+        $pendingApprovers = $timeEntryModel->getPendingApproversList();
+
+        $totalRevenue = 0.0;
+        $pendingBillableHours = 0.0;
+        $rows = \Config\Database::connect()->query("
+            SELECT te.user_id, SUM(te.hours) as total_hours
+            FROM time_entries te
+            JOIN tasks ON tasks.id = te.task_id
+            JOIN products ON products.id = tasks.product_id
+            WHERE te.status = 'approved'
+                AND te.work_date >= ? AND te.work_date <= ?
+                AND (products.product_type IS NULL OR products.product_type != 'leave')
+            GROUP BY te.user_id
+        ", [$from, $to])->getResultArray();
+        foreach ($rows as $r) {
+            $costRow = $costModel->getForUser($r['user_id']);
+            $monthlyCost = $costRow ? (float) $costRow['monthly_cost'] : 0;
+            $hourlyCost = $configService->calculateHourlyCost($monthlyCost);
+            $hrs = (float) $r['total_hours'];
+            $totalRevenue += $hrs * $hourlyCost;
+            $pendingBillableHours += $hrs;
+        }
+
+        $smarty = new SmartyEngine();
+        return $smarty->render('admin/dashboard.tpl', [
+            'title'             => 'Admin Dashboard',
+            'pending_count'     => $pendingCount,
+            'nav_active'        => 'admin_dashboard',
+            'overall_hours'     => $overall,
+            'monthly_hours'     => $monthlyHours,
+            'hours_by_product'  => $hoursByProduct,
+            'pending_approvers' => $pendingApprovers,
+            'total_revenue'     => $totalRevenue,
+            'pending_hours'     => $pendingBillableHours,
+            'pending_invoices'  => 0,
+            'pending_payments'  => 0.0,
+            'from'              => $from,
+            'to'                => $to,
+            'user_email'        => $session->get('user_email'),
+            'user_role'         => $userRole,
+            'is_super_admin'    => $userRole === 'Super Admin',
+        ]);
+    }
 
     public function users()
     {
@@ -19,18 +94,44 @@ class AdminController extends BaseController
         $teamModel = new TeamModel();
 
         $teamFilter = $this->request->getGet('team');
+        $search = trim((string) $this->request->getGet('q'));
+        $sort = $this->request->getGet('sort') ?: 'name';
+        $dir = strtolower((string) ($this->request->getGet('dir') ?: 'asc'));
+        if ($dir !== 'desc') {
+            $dir = 'asc';
+        }
+
         $builder = $userModel->select('users.*, rm.first_name as rm_first, rm.last_name as rm_last')
             ->join('users as rm', 'rm.id = users.reporting_manager_id', 'left');
         if ($teamFilter !== null && $teamFilter !== '') {
             $builder->join('teams', 'teams.id = users.team_id', 'inner')
                 ->where('teams.name', $teamFilter);
         }
+        if ($search !== '') {
+            $builder->groupStart()
+                ->like('users.email', $search)
+                ->orLike('users.first_name', $search)
+                ->orLike('users.last_name', $search)
+                ->orLike('users.username', $search)
+                ->groupEnd();
+        }
+        $sortCol = match ($sort) {
+            'id' => 'users.id',
+            'email' => 'users.email',
+            'role' => 'users.role_id',
+            'team' => 'users.team_id',
+            'created' => 'users.created_at',
+            default => 'users.first_name',
+        };
+        $builder->orderBy($sortCol, $dir);
         $users = $builder->findAll();
 
         foreach ($users as &$u) {
             $u['role_name'] = ($userModel->getRole($u)['name'] ?? '—');
             $u['team_name'] = ($userModel->getTeam($u)['name'] ?? '—');
             $u['reporting_manager_name'] = trim(($u['rm_first'] ?? '') . ' ' . ($u['rm_last'] ?? '')) ?: '—';
+            $u['display_name'] = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')) ?: ($u['email'] ?? '—');
+            $u['created_at_fmt'] = ! empty($u['created_at']) ? date('d-m-Y', strtotime($u['created_at'])) : '—';
         }
         $teams = $teamModel->orderBy('name')->findAll();
 
@@ -41,6 +142,9 @@ class AdminController extends BaseController
             'users'         => $users,
             'teams'         => $teams,
             'filter_team'   => $teamFilter ?? '',
+            'search'        => $search,
+            'sort'          => $sort,
+            'dir'           => $dir,
             'user_email'    => session()->get('user_email'),
             'user_role'     => session()->get('user_role'),
             'is_super_admin'=> true,
@@ -230,15 +334,39 @@ class AdminController extends BaseController
     public function productsManage()
     {
         $productModel = new ProductModel();
-        $products = $productModel->select('products.*, u.email as lead_email')
-            ->join('users u', 'u.id = products.product_lead_id', 'left')
-            ->findAll();
+        $search = trim((string) $this->request->getGet('q'));
+        $sort = $this->request->getGet('sort') ?: 'name';
+        $dir = strtolower((string) ($this->request->getGet('dir') ?: 'asc'));
+        if ($dir !== 'desc') {
+            $dir = 'asc';
+        }
+
+        $builder = $productModel->select('products.*, u.email as lead_email, u.first_name as lead_first, u.last_name as lead_last')
+            ->join('users u', 'u.id = products.product_lead_id', 'left');
+        if ($search !== '') {
+            $builder->like('products.name', $search);
+        }
+        $sortCol = match ($sort) {
+            'id' => 'products.id',
+            'created' => 'products.created_at',
+            default => 'products.name',
+        };
+        $builder->orderBy($sortCol, $dir);
+        $products = $builder->findAll();
+
+        foreach ($products as &$p) {
+            $p['lead_name'] = trim(($p['lead_first'] ?? '') . ' ' . ($p['lead_last'] ?? '')) ?: ($p['lead_email'] ?? '—');
+            $p['created_at_fmt'] = ! empty($p['created_at']) ? date('d-m-Y', strtotime($p['created_at'])) : '—';
+        }
 
         $smarty = new SmartyEngine();
         return $smarty->render('admin/products_manage.tpl', [
             'title'          => 'Manage Products',
             'nav_active'     => 'products_manage',
             'products'       => $products,
+            'search'         => $search,
+            'sort'           => $sort,
+            'dir'            => $dir,
             'user_email'     => session()->get('user_email'),
             'success'        => session()->getFlashdata('success'),
             'error'          => session()->getFlashdata('error'),

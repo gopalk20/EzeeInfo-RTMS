@@ -1,3 +1,4 @@
 .cursor/
 writable/debugbar/
 writable/smarty_compile/
+writable/import/*.xlsx

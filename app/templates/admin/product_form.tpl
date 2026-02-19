@@ -28,6 +28,12 @@
     </div>
     <p><button type="submit" class="btn">Save</button> <a href="/admin/products/manage" class="btn btn-secondary">Cancel</a></p>
 </form>
+{if $product}
+<form method="post" action="/admin/products/{$product.id}/toggle-disabled" style="display:inline; margin-top: 12px;" onsubmit="return confirm('{if $product.is_disabled}Enable{else}Disable{/if} this product?');">
+    <input type="hidden" name="{$csrf}" value="{$hash}">
+    <button type="submit" class="btn" style="background: {if $product.is_disabled}#059669{else}#b45309{/if};">{if $product.is_disabled}Enable Product{else}Disable Product{/if}</button>
+</form>
+{/if}
 
 {if $product}
 <h2 style="margin-top: 28px;">Grant/Revoke Access (Manager & Product Members)</h2>
@@ -65,7 +71,7 @@
             <td>
                 <form method="post" action="/admin/products/{$product.id}/members/remove/{$m.user_id}" style="display:inline;" onsubmit="return confirm('Revoke access?');">
                     <input type="hidden" name="{$csrf}" value="{$hash}">
-                    <button type="submit" class="btn" style="padding: 4px 10px; font-size: 0.85em; background:#c00;">Revoke</button>
+                    <button type="submit" class="btn btn-sm" style="background:#c00;">Revoke</button>
                 </form>
             </td>
         </tr>

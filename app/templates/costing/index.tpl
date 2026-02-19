@@ -32,7 +32,7 @@
                     <input type="hidden" name="{$csrf}" value="{$hash}">
                     <input type="hidden" name="user_id" value="{$c.user_id}">
                     <input type="number" name="monthly_cost" value="{$c.monthly_cost}" step="0.01" min="0" style="width:100px;">
-                    <button type="submit" class="btn">Update</button>
+                    <button type="submit" class="btn btn-sm">Update</button>
                 </form>
             </td>
         </tr>

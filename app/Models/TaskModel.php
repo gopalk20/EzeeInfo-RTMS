@@ -15,10 +15,19 @@ class TaskModel extends Model
 
     public function getByAssignee(int $userId): array
     {
-        return $this->select('tasks.*, products.name as product_name')
+        return $this->select('tasks.*, products.name as product_name, products.product_type, products.max_allowed_hours')
             ->join('products', 'products.id = tasks.product_id')
-            ->where('tasks.assignee_id', $userId)
-            ->orderBy('tasks.created_at', 'DESC')
+            ->groupStart()
+                ->where('tasks.assignee_id', $userId)
+                ->orWhere('products.product_type', 'leave')
+            ->groupEnd()
+            ->groupStart()
+                ->where('products.is_disabled', null)
+                ->orWhere('products.is_disabled', 0)
+            ->groupEnd()
+            ->orderBy('products.product_type', 'ASC')
+            ->orderBy('products.name')
+            ->orderBy('tasks.title')
             ->findAll();
     }
 

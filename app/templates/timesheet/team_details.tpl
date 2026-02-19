@@ -3,7 +3,7 @@
 <div class="content-card">
 <h1>Time Entries: {$display_name|escape}</h1>
 <p style="color:#666;">Period: {$from|escape} to {$to|escape}</p>
-<p><a href="/timesheet/team?period={$period|escape}{if $period == 'monthly'}&month={$month_value|escape}{elseif $period == 'daily'}&date={$from|escape}{elseif $period == 'weekly'}&date={$from|escape}{/if}">← Back to Team Timesheet</a></p>
+<p><a href="/timesheet/team?period={$period|escape}{if $period == 'monthly'}&month={$month_value|escape}{elseif $period == 'daily'}&date={$from|escape}{elseif $period == 'weekly'}&date={$from|escape}{/if}{if $filter_team}&team={$filter_team|escape:url}{/if}">← Back to Team Timesheet</a></p>
 
 {if empty($entries)}
 <p style="margin-top: 20px;">No time entries for this period.</p>
