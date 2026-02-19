@@ -29,7 +29,7 @@ class App extends BaseConfig
      *
      * @var list<string>
      */
-    public array $allowedHostnames = [];
+    public array $allowedHostnames = ['127.0.0.1', 'localhost'];
 
     /**
      * --------------------------------------------------------------------------

@@ -1,13 +1,13 @@
 # Implementation Plan: RTMS Baseline
 
-**Branch**: `develop` | **Date**: 2026-02-19 | **Spec**: [.specify/memory/spec.md](.specify/memory/spec.md)  
+**Branch**: `feature/rtms-implementation` | **Date**: 2026-02-19 | **Spec**: [.specify/memory/spec.md](.specify/memory/spec.md)  
 **Input**: Baseline specification, constitution v1.0.0, clarify.md responses
 
 ---
 
 ## Summary
 
-Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance), time logging with D+N policy, rework tracking, Manager-only approval, and Finance reports with export.
+Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance, Super Admin), user profile (Name, email, role, team), logout, self-service password reset, Super Admin add user and reset password, time logging with D+N policy, rework tracking, Manager-only approval, and Finance reports with export.
 
 **Technical approach**: Layered architecture (Controllers → Models/Services → Database). New schema via migrations. GitHub Webhooks for real-time status. RBAC via Filters. Configuration in database/env for BR-1, BR-2.
 
@@ -37,7 +37,7 @@ Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + 
 |-----------|--------|-------|
 | I. Data Integrity & Auditability | ✓ | Approval locks; audit log for edits |
 | II. Configuration Over Hard-Coding | ✓ | BR-1, BR-2, D+N, working days in config |
-| III. RBAC | ✓ | Four roles; filter-based checks |
+| III. RBAC | ✓ | Five roles (incl. Super Admin); filter-based checks |
 | IV. GitHub Single Source of Truth | ✓ | Sync Issues + PRs; webhooks |
 | V. Approval Workflow Integrity | ✓ | Manager-only; sequential; auditable |
 | VI. Calculated Values Deterministic | ✓ | BR-4, BR-5; no override |
@@ -232,7 +232,7 @@ writable/
 |------|-------------|
 | 6.1 | Employee removed from product: reassign tasks to Product Lead | Q6.3 |
 | 6.2 | Max allowed time exceeded: warn, do not block | Q2.1 |
-| 6.3 | Timeline exceeded: document as TBD or implement warning (per product) | Q6.2 |
+| 6.3 | Timeline exceeded: show warning when logging time; do not block | Q6.2 |
 | 6.4 | Audit log: record before/after for editable changes | Constitution I |
 
 ---
@@ -258,7 +258,7 @@ audit_log (entity, entity_id, user_id, action, before, after, created_at)
 
 | # | Assumption | Risk |
 |---|------------|------|
-| A1 | Timeline exceeded (Q6.2): Implement "warn only" for MVP | Low |
+| A1 | Timeline exceeded (Q6.2): Show warning only; allow logging (resolved) | Low |
 | A2 | Multi-level approval: Start with single Manager approval; add levels later if needed | Low |
 | A3 | Product = Project for Finance reports (Q2.2: Product ≠ Project TBD) | Medium |
 | A4 | GitHub Webhook requires public URL or ngrok for local dev | Low |
@@ -283,4 +283,22 @@ No constitution violations requiring justification. Plan follows layered archite
 
 **Next step**: Run `/speckit.tasks` to generate granular tasks, or begin Phase 0 implementation.
 
-**Version**: 1.0.0 | **Created**: 2026-02-19
+---
+
+## Implementation Progress (2026-02-19)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 0 (Foundation) | ✓ Complete | Auth, roles, config, RBAC |
+| Phase 1 (Products) | ✓ | ProductModel, ProductController; Super Admin CRUD via AdminController |
+| Phase 2 (Tasks) | ✓ | TaskModel, TaskController; Manager/Super Admin task CRUD on product view |
+| Phase 3 (Time Logging) | ✓ | TimeEntryModel (status); TimesheetController; edit before approval; daily/weekly/monthly view |
+| Phase 4 (Approval) | ✓ Complete | ApprovalController; task + timesheet approvals; Product Lead + Manager; reporting_manager_id routing |
+| Phase 5 (Reports) | ✓ Complete | ReportController; task-wise, employee-wise, performance; CSV export |
+| Phase 6 (Milestones, Costing) | ✓ Complete | MilestoneController; CostingController; resource_costs |
+| Phase 7 (Edge Cases) | Partial | Delete validation (user/task mapped); success/error messages |
+| **Phase 8 (New)** | ✓ Complete | reporting_manager_id, is_active; user enable/disable; profile reporting manager; product access control; Vertex UI |
+
+---
+
+**Version**: 1.5.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Timesheet workflow, Reporting, Product/Task CRUD, Access control, Vertex UI)

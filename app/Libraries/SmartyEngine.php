@@ -109,9 +109,16 @@ class SmartyEngine
      */
     public function render(string $template, array $data = []): string
     {
-        if (!empty($data)) {
-            $this->assign($data);
-        }
+        $session = \Config\Services::session();
+        $layoutVars = [
+            'user_email'    => $session->get('user_email'),
+            'user_role'     => $session->get('user_role'),
+            'is_super_admin'=> $session->get('user_role') === 'Super Admin',
+            'user_initial'  => strtoupper(substr($session->get('user_email') ?? 'U', 0, 1)),
+            'display_name'  => $session->get('display_name') ?: $session->get('user_email'),
+            'year'          => date('Y'),
+        ];
+        $this->assign(array_merge($layoutVars, $data));
         return $this->smarty->fetch($template);
     }
 

@@ -211,7 +211,7 @@ Answer each question below. Your responses will be captured and used to update t
 
 **Question**: Should the system block new time logs, show warning, allow with override, or no special handling?
 
-**Response**: _[TBD - Not sure]_
+**Response**: [x] B) Show warning only; allow logging.
 
 ---
 
@@ -242,6 +242,69 @@ Answer each question below. Your responses will be captured and used to update t
 
 ---
 
+## 8. Post-Plan Clarifications (Optional)
+
+*Questions that emerged during implementation planning. Answer to refine scope.*
+
+### Q8.1 Timeline exceeded (Q6.2 – resolved)
+**Context**: Product End Date passed but tasks are incomplete.
+
+**Question**: Desired behavior?
+- **A)** Block new time logs
+- **B)** Show warning only; allow logging
+- **C)** Allow with Manager override
+- **D)** No special handling
+
+**Response**: [x] B) Show warning only; allow logging.
+
+---
+
+### Q8.2 Product vs Project
+**Context**: Q2.2 said Product ≠ Project; Finance reports mention "project-wise" time.
+
+**Question**: For Finance reports in MVP, should "project" = product (single entity), or do we need a separate Project entity that groups Products?
+
+**Response**: _[Your answer]_
+
+---
+
+### Q8.3 Multi-level approval sequence
+**Context**: Clarify said "multi-level"; plan assumed single Manager for MVP.
+
+**Question**: For MVP, is single Manager approval sufficient, or do you need a defined sequence (e.g., Product Lead recommends → Manager approves)?
+
+**Response**: _[Your answer]_
+
+---
+
+### Q8.4 Who reopens task for rework?
+**Context**: Q3.3 said Employee finds out via status change; spec says "task reopened for rework."
+
+**Question**: Who changes status to "Rework Requested"? Product Lead, Manager, or both?
+
+**Response**: _[Your answer]_
+
+---
+
+## 9. Auth, Profile & Super Admin (User-Requested 2026-02-19)
+
+### Q9.1 User Profile
+**Response**: [x] User profile shows: Name, email, current role, team name. All logged-in users can view their profile.
+
+### Q9.2 Logout
+**Response**: [x] All users can log out from the application.
+
+### Q9.3 Password Reset
+**Response**: [x] Users can reset their own password (self-service). Super Admin can reset any other user's password without needing the current password.
+
+### Q9.4 Super Admin
+**Response**: [x] Super Admin is a fifth role with full access. Can add new users and reset any user's password.
+
+### Q9.5 Add User (Super Admin)
+**Response**: [x] Super Admin adds users with: username, email, first name, last name, current role (selection), team name (selection), phone number.
+
+---
+
 ## Summary
 
 | Category        | Questions | Resolved |
@@ -251,11 +314,36 @@ Answer each question below. Your responses will be captured and used to update t
 | D+N & Rework    | 3         | 3        |
 | Approval        | 3         | 3        |
 | Brownfield      | 3         | 3        |
-| Edge Cases      | 3         | 2 (Q6.2 TBD) |
+| Edge Cases      | 3         | 3            |
 | Finance         | 2         | 2        |
+| Post-Plan       | 4         | 0        |
+| Auth & Profile  | 5         | 5        |
 
-**Next step**: Once key questions are answered, run `/speckit.plan` to create the implementation plan. Unresolved items can be marked as assumptions in the plan.
+**Next step**: Answer Q6.2 and optional Post-Plan questions to refine the implementation. Plan already created; assumptions documented for unresolved items.
 
 ---
 
-**Version**: 1.0.0 | **Created**: 2026-02-19
+## Implementation Status (2026-02-19)
+
+**Scope implemented**: Time entry, products, tasks, milestones, costing, GitHub sync, approval, reports, performance, timesheet workflow, reporting structure, product/task CRUD, access control, user enable/disable, Vertex UI.
+
+| Item | Status |
+|------|--------|
+| Time entry form | ✓ TimesheetController; task, work_date, hours, is_rework, status; success message on submit |
+| BR-1 (daily limit) | ✓ ConfigService; validate on save |
+| BR-3 (block locked) | ✓ Block log for locked tasks |
+| Timesheet status | ✓ pending_approval, approved; edit before approval |
+| Timesheet view | ✓ daily/weekly/monthly; Project Name \| Time \| Total; timesheet/view.tpl |
+| Reporting manager | ✓ users.reporting_manager_id; AdminController setReportingManager; profile shows reporting manager |
+| Product Lead approvals | ✓ Product Lead sees Approval page; approve timesheet for product members |
+| Team timesheet | ✓ /timesheet/team; consolidated view for Lead/Manager reports |
+| Products | ✓ list, view, syncFromGitHub; Super Admin: add/edit/delete; delete blocks if users/tasks mapped |
+| Product access control | ✓ Grant/revoke product_members; AdminController productMemberAdd/Remove |
+| Task CRUD | ✓ Manager/Super Admin: add/edit/delete on product view; delete blocks if time entries mapped |
+| User enable/disable | ✓ users.is_active; blocked login; AdminController toggleActive |
+| Costing, Approval, Reports | ✓ As before |
+| Vertex UI | ✓ Login page; layout (header, sidebar); dashboard cards |
+
+---
+
+**Version**: 1.5.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (timesheet workflow, reporting, CRUD, access control, Vertex UI)

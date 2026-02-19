@@ -8,6 +8,10 @@ class CreateUsersTable extends Migration
 {
     public function up()
     {
+        if ($this->forge->getConnection()->tableExists('users')) {
+            return;
+        }
+
         $this->forge->addField([
             'id' => [
                 'type'           => 'INT',

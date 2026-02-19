@@ -8,6 +8,8 @@ use CodeIgniter\Filters\DebugToolbar;
 use CodeIgniter\Filters\Honeypot;
 use CodeIgniter\Filters\InvalidChars;
 use CodeIgniter\Filters\SecureHeaders;
+use App\Filters\AuthFilter;
+use App\Filters\RoleFilter;
 
 class Filters extends BaseConfig
 {
@@ -24,6 +26,13 @@ class Filters extends BaseConfig
         'honeypot'      => Honeypot::class,
         'invalidchars'  => InvalidChars::class,
         'secureheaders' => SecureHeaders::class,
+        'auth'          => AuthFilter::class,
+        'role'          => RoleFilter::class,
+        'require_manager'               => \App\Filters\RequireManagerFilter::class,
+        'require_product_lead_or_manager'=> \App\Filters\RequireProductLeadOrManagerFilter::class,
+        'require_employee'              => \App\Filters\RequireEmployeeFilter::class,
+        'require_finance_or_manager'     => \App\Filters\RequireFinanceOrManagerFilter::class,
+        'require_super_admin'           => \App\Filters\RequireSuperAdminFilter::class,
     ];
 
     /**
@@ -65,5 +74,7 @@ class Filters extends BaseConfig
      * Example:
      * 'isLoggedIn' => ['before' => ['account/*', 'profiles/*']]
      */
-    public array $filters = [];
+    public array $filters = [
+        'auth' => ['before' => ['profile', 'profile/*', 'admin', 'admin/*', 'products', 'products/*', 'tasks', 'tasks/*', 'timesheet', 'timesheet/*', 'approval', 'approval/*', 'reports', 'reports/*']],
+    ];
 }

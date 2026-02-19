@@ -1,9 +1,9 @@
 # Baseline Specification: Resource Timesheet Management System (RTMS)
 
 **Created**: 2026-02-19  
-**Status**: Draft  
-**Constitution**: v1.0.0  
-**Input**: Role capabilities, product workflows, and task lifecycle
+**Status**: In progress (Time Sheet grid, Team Timesheet format, Reports filter, Manage Users/Products enhancements implemented)  
+**Constitution**: v1.6.0  
+**Input**: Role capabilities, product workflows, task lifecycle, reporting structure
 
 ---
 
@@ -17,6 +17,10 @@
 - Only Manager can see financial costing
 - GitHub sync: Webhooks (real-time); Issues + PRs; one branch per task; Employee selects branch from list
 - Build from scratch: new schema, new roles
+- **Login**: Individual users must log in via a dedicated login page. Disabled users (is_active=0) cannot log in.
+- **Auth features**: Logout; user profile (Name, email, current role, team name, reporting manager); user self-service password reset; Super Admin can reset any user's password, add new users, enable/disable users, modify reporting manager.
+- **Timesheet workflow**: Submitted timesheets are pending_approval; employee can edit before approval; success message on submit.
+- **Approvals**: Product Lead can approve timesheets for their product members; Manager approves for direct reports (reporting_manager_id); time entries routed to mapped lead/manager.
 
 ---
 
@@ -34,14 +38,21 @@
 **Cannot Do**:
 - Modify system-wide users or roles
 - See financial costing (only Manager allowed)
-- Approve task completion (only Manager can approve)
+- Approve task completion (Manager only)
+
+**Can Do (Timesheet)**:
+- Approve timesheet entries for members of products they lead
+- View consolidated timesheet (team timesheet) for their product members by daily/weekly/monthly
 
 ### 1.2 Manager (Admin)
 
 **Can Do**: All Product Lead capabilities plus:
 - Approve task completion (multi-level approval; Manager is the approver)
+- Approve timesheet entries for direct reports (users where reporting_manager_id = Manager)
 - System-wide user/role management
 - View and manage financial costing
+- Create, delete, modify tasks (within products they manage)
+- View consolidated timesheet (team timesheet) for their reports by daily/weekly/monthly
 
 ### 1.3 Employee
 
@@ -72,6 +83,31 @@
 - Create or modify products or tasks
 - Approve or change task status
 
+### 1.5 Super Admin
+
+**Can Do**:
+- All Manager capabilities
+- Add new users with: username, email, first name, last name, current role (selection), team name (selection), phone number
+- Reset any user's password
+- Enable or disable users (disabled users cannot log in)
+- Modify reporting manager (reporting_manager_id) for any user
+- Product CRUD: add, edit, delete, rename product; delete blocked if users/tasks mapped
+- Grant/revoke product access to manager or product lead (product_members UI)
+- Task CRUD: create, delete, modify task (with Manager); delete blocked if time entries mapped
+- Success/error messages for all product and task CRUD operations
+
+**Cannot Do**:
+- None (full system access)
+
+---
+
+## 1.6 User Profile & Auth (All Roles)
+
+- **User Profile**: Each user has a profile view showing Name, email, current role, team name, reporting manager. Accessible to the logged-in user.
+- **Logout**: All users can log out from the application.
+- **Password Reset (self)**: Any user can reset their own password (requires current password verification or forgot-password flow).
+- **Password Reset (Super Admin)**: Super Admin can reset any other user's password without knowing the current password.
+
 ---
 
 ## 2. Product-Level Workflows
@@ -101,6 +137,19 @@
 ---
 
 ## 3. User Scenarios & Testing
+
+### User Story 0 - User Profile, Logout & Password Management (Priority: P1)
+
+As a logged-in user, I can view my profile (Name, email, current role, team name), log out, and reset my password so I can manage my account. As Super Admin, I can add new users and reset any user's password.
+
+**Acceptance Scenarios**:
+1. **Given** I am logged in, **When** I click Profile, **Then** I see Name, email, current role, team name
+2. **Given** I am logged in, **When** I click Logout, **Then** I am logged out and redirected to login
+3. **Given** I am logged in, **When** I submit "Reset my password" with current + new password, **Then** my password is updated
+4. **Given** I am Super Admin, **When** I select a user and set a new password, **Then** that user's password is reset without needing current password
+5. **Given** I am Super Admin, **When** I add a new user (username, email, first name, last name, role, team, phone), **Then** the user is created and can log in
+
+---
 
 ### User Story 1 - Product Lead Creates Product and Onboards Team (Priority: P1)
 
@@ -181,7 +230,7 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 - **Branch already linked**: One branch per task; system rejects linking a branch already linked to another task
 - **GitHub sync failures**: Disable sync until fixed; surface error to admin
-- **Timeline exceeded**: TBD (see clarify Q6.2)
+- **Timeline exceeded**: Show warning only; allow logging (clarify Q6.2)
 - **Employee removed from product**: Reassign assigned tasks to Product Lead
 - **Maximum allowed time exceeded**: No block; warn or audit only
 
@@ -191,7 +240,15 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ### Role & Access
 
-- **FR-001**: System MUST enforce RBAC for Product Lead, Employee, Finance, and Manager roles per capability matrix
+- **FR-000**: System MUST provide a login page for individual user authentication. All timesheet logging, product/task management, and reports require authenticated session. Unauthenticated users are redirected to login.
+- **FR-000a**: System MUST provide logout functionality for all authenticated users.
+- **FR-000b**: System MUST provide a user profile page showing Name, email, current role, team name for the logged-in user.
+- **FR-000c**: System MUST allow any user to reset their own password (self-service).
+- **FR-000d**: System MUST allow Super Admin to reset any user's password.
+- **FR-000e**: System MUST allow Super Admin to add new users with: username, email, first name, last name, current role (selection), team name (selection), phone number.
+- **FR-000f**: System MUST allow Super Admin to enable/disable users; disabled users (is_active=0) cannot log in.
+- **FR-000g**: System MUST allow Super Admin to modify reporting manager (reporting_manager_id) for any user.
+- **FR-001**: System MUST enforce RBAC for Employee, Product Lead, Manager, Finance, and Super Admin roles per capability matrix
 - **FR-002**: System MUST prevent Employees from creating products, assigning tasks, or viewing other employees' performance
 - **FR-003**: System MUST prevent Finance from creating/modifying products or tasks, or approving/changing task status
 - **FR-004**: System MUST prevent Product Lead from modifying system-wide users or roles
@@ -199,12 +256,15 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ### Product & Membership
 
+- **FR-005a**: System MUST allow Super Admin to add, edit, delete, rename products; disable/enable products (is_disabled); delete blocked if users or tasks mapped; show success/error messages; disabled products excluded from main product list
+- **FR-005b**: System MUST allow Super Admin to grant/revoke product access to manager or product lead via product_members UI
 - **FR-006**: System MUST allow Product Lead/Manager to create products with name, timeline (start/end date), and maximum allowed time
 - **FR-007**: System MUST allow Product Lead/Manager to add or remove members to/from a product
 - **FR-008**: System MUST allow Product Lead/Manager to link a GitHub repository to a product
 
 ### Tasks & Assignment
 
+- **FR-008a**: System MUST allow Manager and Super Admin to create, delete, modify tasks; delete blocked if time entries mapped; show success/error messages
 - **FR-009**: System MUST allow Product Lead/Manager to create tasks and milestones
 - **FR-010**: System MUST allow Product Lead/Manager to assign tasks to product members
 - **FR-011**: System MUST allow Employee to link a GitHub branch to an assigned task; system lists branches from GitHub API; Employee selects one; one branch per task (no reuse across tasks)
@@ -220,12 +280,23 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-018**: System MUST enforce configurable daily hours limit (BR-1)
 - **FR-019**: System MUST allow rework time to be logged (Employee explicitly marks time entry as rework when logging) and calculate Rework % = (Rework Hours / Total Hours) × 100 (BR-4)
 - **FR-020**: System MUST allow Employee to respond to rework requests (log rework time)
+- **FR-020a**: System MUST show warning when logging time for tasks in products past End Date; MUST allow logging (no block)
 
-### Approval & Reporting
+### Timesheet Workflow & Approval
 
-- **FR-021**: System MUST allow Manager only to approve task completion (multi-level approval; Product Lead cannot approve)
+- **FR-020b**: System MUST show success message when employee submits timesheet
+- **FR-020c**: System MUST store time entries with status (pending_approval, approved); submitted entries are pending_approval
+- **FR-020d**: System MUST allow employee to edit time entry before approval (while status = pending_approval)
+- **FR-020e**: System MUST provide timesheet view by period (daily, weekly, monthly) with Project Name | Time entered | Total submitted
+- **FR-020f**: System MUST map employee to reporting manager (reporting_manager_id); time entries routed to mapped lead/manager for approval
+- **FR-020g**: System MUST allow Product Lead to approve timesheet entries for members of products they lead
+- **FR-020h**: System MUST allow Manager to approve timesheet entries for direct reports (reporting_manager_id)
+- **FR-020i**: System MUST show consolidated timesheet (team timesheet) to Lead/Manager for their respective reports
+- **FR-020j**: System MUST provide Time Sheet grid view (/timesheet/sheet): tasks as rows, week days as columns; hours per task per day; row totals, daily totals, weekly total; budget progress (used/max h) per product
+- **FR-020k**: System MUST show Team Timesheet in resource allocation format: one row per employee with Employee Name, Department, Allocation, Billing Role, Billing Rate, Hours Spent/Allocated (progress bar), Actions (View); date pickers (daily/weekly/monthly); /timesheet/team/details for member entries
+- **FR-021**: System MUST allow Manager and Product Lead to approve (task completion: Manager; timesheet: Manager for reports, Product Lead for product members)
 - **FR-022**: System MUST lock timesheet/task entries after final approval
-- **FR-023**: System MUST provide Finance with employee-wise and task-wise time consumption reports
+- **FR-023**: System MUST provide Finance with employee-wise and task-wise time consumption reports; reports filter by date range (From/To) selectable on Reports page
 - **FR-024**: System MUST provide Finance with rework impact and performance/productivity reports; reports viewable in UI and exportable (CSV, PDF, Excel)
 - **FR-025**: System MUST allow Finance to analyze efficiency vs time spent
 
@@ -238,11 +309,13 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ## 5. Key Entities
 
-- **Product**: Represents a deliverable or project; has name, timeline, max allowed time, GitHub repo link, members
+- **User**: username, email, first_name, last_name, phone, password (hashed), role_id, team_id, reporting_manager_id, is_active
+- **Team**: id, name (team name for grouping users)
+- **Product**: Represents a deliverable or project; has name, timeline, max allowed time, GitHub repo link, members, is_disabled; disabled products excluded from main product list
 - **Task**: Represents work unit; has status (To Do/In Progress/Completed), assignment, linked branch, time log, rework log
 - **Milestone**: Time-bounded deliverable; can group tasks; has release status
 - **Member**: User assigned to a product; role within product context
-- **TimeEntry**: Logged time against a task; subject to D+N policy; tagged as regular or rework
+- **TimeEntry**: Logged time against a task; status (pending_approval, approved); subject to D+N policy; tagged as regular or rework; editable by employee while pending_approval
 - **Approval**: Logical approval of task completion; locks task timing; records approver and timestamp
 - **GitHubLink**: Repository or branch linked to product/task; used for sync and commit/merge detection
 
@@ -261,4 +334,45 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ---
 
-**Version**: 1.0.0 | **Created**: 2026-02-19 | **Constitution**: v1.0.0
+---
+
+## 7. Implementation Status (2026-02-19)
+
+**Scope**: Timesheet workflow, reporting structure, product/task CRUD, access control, Vertex UI, user enable/disable.
+
+### Implemented
+
+| Area | Status | Notes |
+|------|--------|-------|
+| **Time Entry** | ✓ | TimesheetController; log time; work_date, hours, is_rework, status; BR-1; success message on submit; redirect to daily summary after log |
+| **Timesheet Workflow** | ✓ | status pending_approval/approved; edit before approval; timesheet/view (daily/weekly/monthly) with Time Entry Details table; timesheet/edit |
+| **Reporting Structure** | ✓ | users.reporting_manager_id; time entries routed to mapped lead/manager; profile shows reporting manager |
+| **Approval** | ✓ | Product Lead + Manager + Super Admin; task completion + timesheet approvals; ApprovalController::approveTimesheet |
+| **Team Timesheet** | ✓ | /timesheet/team; resource allocation format (Employee, Dept, Allocation, Billing, Hours Spent/Allocated); /timesheet/team/details for member entries |
+| **Products** | ✓ | list, view, sync; Super Admin: add/edit/delete/disable-enable (AdminController); products.is_disabled; delete blocks if users/tasks mapped |
+| **Product Access** | ✓ | Grant/revoke product_members; AdminController::productMemberAdd/Remove |
+| **Tasks** | ✓ | list; Manager/Super Admin: add/edit/delete on product view; delete blocks if time entries mapped |
+| **User Management** | ✓ | Super Admin: add user, reset password, enable/disable, modify reporting manager; Manage Users: table (Name, Email, Role, Team, Reporting Manager, Status, Edit); Edit page for Reporting Manager, Status, Password; team filter |
+| **Vertex UI** | ✓ | Login page; layout (header, sidebar, content); dashboard cards; SmartyEngine layout vars; Team Timesheet card for Manager/Lead |
+| **Milestones, Costing** | ✓ | As before |
+| **Time Sheet Grid** | ✓ | /timesheet/sheet; weekly grid; tasks × days; row/daily/weekly totals |
+| **Reports** | ✓ | task-wise, employee-wise, performance; date range (From/To) filter; export CSV |
+
+### Key Deliverables
+
+- **Migrations**: products (is_disabled), product_members, milestones, tasks, time_entries (status), approvals, resource_costs, users (reporting_manager_id, is_active)
+- **Models**: ProductModel, TaskModel, TimeEntryModel, ConfigModel, ConfigService, ApprovalModel, ResourceCostModel, MilestoneModel
+- **Controllers**: ProductController, TaskController, TimesheetController, MilestoneController, ApprovalController, CostingController, ReportController
+- **Templates**: products/list.tpl, products/view.tpl, tasks/list.tpl, timesheet/index.tpl, milestones/list.tpl, approval/pending.tpl, costing/index.tpl, reports/*
+- **Routes**: /products, /products/view/(:num), POST /products/sync/(:num), /products/(:num)/tasks/add|edit|delete, /admin/products/manage|add|edit|delete|toggle-disabled|members, /timesheet, /timesheet/sheet, /timesheet/view, /timesheet/team, /timesheet/team/details, /timesheet/edit/(:num), /approval, /approval/timesheet/approve/(:num), /admin/users|add|edit/(:num)|reporting-manager|toggle-active
+- **Seed**: ProductTaskSeeder, UserSeeder (Manager, Finance added)
+
+---
+
+### UI Design (Vertex Format)
+
+- **FR-028**: Login page: light grey background, centered white card, "Log in to start your session", input fields with icons, Forgot Password link, dark purple Log In button
+- **FR-029**: Main layout: dark purple header (logo, hamburger, notification bell, user dropdown); left sidebar (MAIN NAVIGATION); content area; footer with copyright
+- **FR-030**: Dashboard: cards for Timesheet, Task, Pending Approval (with count for Manager/Lead)
+
+**Version**: 1.6.0 | **Created**: 2026-02-19 | **Constitution**: v1.6.0 | **Updated**: 2026-02-19 (Time Sheet grid, Team Timesheet format, Reports filter, Manage Users/Products)

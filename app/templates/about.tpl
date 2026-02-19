@@ -83,6 +83,12 @@
             <a href="/">Home</a>
             <a href="/users">Users</a>
             <a href="/about">About</a>
+            {if isset($logged_in) && $logged_in}
+                <a href="/profile">Profile</a>
+                <a href="/logout">Logout</a>
+            {else}
+                <a href="/login">Login</a>
+            {/if}
         </div>
 
         <h1>{$title|escape}</h1>
