@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
-        'name' => 'codeigniter4/framework',
-        'pretty_version' => '1.0.0+no-version-set',
-        'version' => '1.0.0.0',
-        'reference' => null,
+        'name' => 'rtms/resource-timesheet-management',
+        'pretty_version' => 'dev-develop',
+        'version' => 'dev-develop',
+        'reference' => '306731e5858716285f139b8eb8ce23d7287c6955',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -27,15 +27,6 @@
             'install_path' => __DIR__ . '/../codeigniter/coding-standard',
             'aliases' => array(),
             'dev_requirement' => true,
-        ),
-        'codeigniter4/framework' => array(
-            'pretty_version' => '1.0.0+no-version-set',
-            'version' => '1.0.0.0',
-            'reference' => null,
-            'type' => 'project',
-            'install_path' => __DIR__ . '/../../',
-            'aliases' => array(),
-            'dev_requirement' => false,
         ),
         'composer/pcre' => array(
             'pretty_version' => '3.3.2',
@@ -417,6 +408,15 @@
             'install_path' => __DIR__ . '/../react/stream',
             'aliases' => array(),
             'dev_requirement' => true,
+        ),
+        'rtms/resource-timesheet-management' => array(
+            'pretty_version' => 'dev-develop',
+            'version' => 'dev-develop',
+            'reference' => '306731e5858716285f139b8eb8ce23d7287c6955',
+            'type' => 'project',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
         ),
         'sebastian/cli-parser' => array(
             'pretty_version' => '1.0.2',
