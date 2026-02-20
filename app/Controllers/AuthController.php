@@ -69,7 +69,8 @@ class AuthController extends BaseController
                 'user'          => $user,
                 'display_name'  => $displayName,
             ]);
-            $redirect = redirect()->to('/home')->with('success', 'Welcome back!');
+            $redirectTo = ($roleName === 'Employee') ? '/tasks' : '/home';
+            $redirect = redirect()->to($redirectTo)->with('success', 'Welcome back!');
             $session->close();
             return $redirect;
         }
@@ -121,6 +122,7 @@ class AuthController extends BaseController
         $smarty = new SmartyEngine();
         return $smarty->render('profile/view.tpl', [
             'title'         => 'My Profile',
+            'nav_active'     => 'profile',
             'user'          => $user,
             'role'          => $role,
             'team'          => $team,
@@ -132,6 +134,96 @@ class AuthController extends BaseController
             'user_role'     => $session->get('user_role'),
             'is_super_admin'=> $session->get('user_role') === 'Super Admin',
             'success'       => session()->getFlashdata('success'),
+        ]);
+    }
+
+    /**
+     * Edit own profile: first_name, last_name, email, employee_id (FR-000b1, Q13.1).
+     * Immediate update with uniqueness check; no email verification.
+     */
+    public function profileEdit()
+    {
+        $session = session();
+        $user = $session->get('user');
+        if (!$user) {
+            return redirect()->to('/');
+        }
+
+        $userModel = new UserModel();
+        $user = $userModel->find($user['id']) ?: $user;
+
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
+            $first_name = trim((string) $this->request->getPost('first_name') ?? '');
+            $last_name  = trim((string) $this->request->getPost('last_name') ?? '');
+            $email     = trim((string) $this->request->getPost('email') ?? '');
+            $employee_id = trim((string) $this->request->getPost('employee_id') ?? '');
+
+            $errors = [];
+            if (strlen($first_name) < 1) {
+                $errors[] = 'First name is required.';
+            } elseif (strlen($first_name) > 128) {
+                $errors[] = 'First name must not exceed 128 characters.';
+            }
+            if (strlen($last_name) < 1) {
+                $errors[] = 'Last name is required.';
+            } elseif (strlen($last_name) > 128) {
+                $errors[] = 'Last name must not exceed 128 characters.';
+            }
+            if (strlen($email) < 1) {
+                $errors[] = 'Email is required.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Invalid email format.';
+            } else {
+                $existing = $userModel->where('email', $email)->where('id !=', $user['id'])->first();
+                if ($existing) {
+                    $errors[] = 'This email is already used by another user.';
+                }
+            }
+            if (strlen($employee_id) > 64) {
+                $errors[] = 'Employee ID must not exceed 64 characters.';
+            }
+
+            if (!empty($errors)) {
+                $smarty = new SmartyEngine();
+                return $smarty->render('profile/edit.tpl', [
+                    'title'       => 'Edit My Profile',
+                    'nav_active'  => 'profile_edit',
+                    'user'        => array_merge($user, ['first_name' => $first_name, 'last_name' => $last_name, 'email' => $email, 'employee_id' => $employee_id]),
+                    'errors'  => $errors,
+                    'csrf'    => csrf_token(),
+                    'hash'    => csrf_hash(),
+                    'user_email'    => $session->get('user_email'),
+                    'user_role'     => $session->get('user_role'),
+                    'is_super_admin'=> $session->get('user_role') === 'Super Admin',
+                ]);
+            }
+
+            $userModel->skipValidation(true)->update($user['id'], [
+                'first_name'  => $first_name,
+                'last_name'   => $last_name,
+                'name'        => trim($first_name . ' ' . $last_name),
+                'email'       => $email,
+                'employee_id' => $employee_id !== '' ? $employee_id : null,
+            ]);
+            $updated = $userModel->find($user['id']);
+            $session->set('user', $updated);
+            $session->set('user_email', $updated['email']);
+            $session->set('display_name', $userModel->getDisplayName($updated));
+
+            return redirect()->to('/profile')->with('success', 'Profile updated successfully.');
+        }
+
+        $smarty = new SmartyEngine();
+        return $smarty->render('profile/edit.tpl', [
+            'title'       => 'Edit My Profile',
+            'nav_active'  => 'profile_edit',
+            'user'        => $user,
+            'errors'      => [],
+            'csrf'    => csrf_token(),
+            'hash'    => csrf_hash(),
+            'user_email'    => $session->get('user_email'),
+            'user_role'     => $session->get('user_role'),
+            'is_super_admin'=> $session->get('user_role') === 'Super Admin',
         ]);
     }
 

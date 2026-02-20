@@ -150,12 +150,14 @@
             {/if}
             {if isset($user_role) && in_array($user_role, ['Manager', 'Super Admin'])}
             <a href="/costing" class="{if isset($nav_active) && $nav_active=='costing'}active{/if}">💰 Costing</a>
-            <a href="/admin/dashboard" class="{if isset($nav_active) && $nav_active=='admin_dashboard'}active{/if}">📊 Admin Dashboard</a>
             {/if}
+            <div class="sidebar-title" style="margin-top: 16px;">Account</div>
+            <a href="/profile" class="{if isset($nav_active) && $nav_active=='profile'}active{/if}">👤 My Profile</a>
             {if isset($is_super_admin) && $is_super_admin}
             <div class="sidebar-title" style="margin-top: 16px;">Admin</div>
             <a href="/admin/users" class="{if isset($nav_active) && $nav_active=='users'}active{/if}">👤 Manage Users</a>
             <a href="/admin/products/manage" class="{if isset($nav_active) && $nav_active=='products_manage'}active{/if}">📦 Manage Products</a>
+            <a href="/admin/settings/email" class="{if isset($nav_active) && $nav_active=='email_settings'}active{/if}">✉ Email Settings</a>
             {/if}
         </nav>
     </aside>

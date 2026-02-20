@@ -21,10 +21,28 @@ class GitHubService
      */
     public function parseRepoUrl(string $url): ?array
     {
-        if (preg_match('#github\.com[:/]([^/]+)/([^/\s#.]+)#', $url, $m)) {
+        if (preg_match('~github\.com[:/]([^/]+)/([^/\s#.]+)~', $url, $m)) {
             return ['owner' => $m[1], 'repo' => preg_replace('/\.git$/', '', $m[2])];
         }
         return null;
+    }
+
+    /**
+     * Fetch repository metadata (name, description).
+     */
+    public function fetchRepo(string $owner, string $repo): ?array
+    {
+        $url = "{$this->apiBase}/repos/{$owner}/{$repo}";
+        $response = $this->request($url);
+        if (!is_array($response)) {
+            return null;
+        }
+        return [
+            'name'        => $response['name'] ?? $repo,
+            'full_name'   => $response['full_name'] ?? "{$owner}/{$repo}",
+            'description' => $response['description'] ?? '',
+            'html_url'    => $response['html_url'] ?? "https://github.com/{$owner}/{$repo}",
+        ];
     }
 
     /**

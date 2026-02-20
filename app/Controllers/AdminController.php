@@ -10,14 +10,24 @@ use App\Models\TeamModel;
 use App\Models\ProductModel;
 use App\Models\TimeEntryModel;
 use App\Models\ResourceCostModel;
+use App\Libraries\GitHubService;
+use App\Libraries\EmailService;
 
 class AdminController extends BaseController
 {
     protected $helpers = ['form'];
 
     /**
+     * Redirect to unified dashboard (FR-040).
+     */
+    public function dashboardRedirect()
+    {
+        return redirect()->to('/home');
+    }
+
+    /**
      * Admin dashboard: Overall Hours, Work Hours Summary, Resource Allocation, Pending Approvers, Financial Summary.
-     * Available to Manager and Super Admin.
+     * Available to Manager and Super Admin. DEPRECATED: content merged into Home::index (unified dashboard).
      */
     public function dashboard()
     {
@@ -219,28 +229,101 @@ class AdminController extends BaseController
     public function userEdit(int $id)
     {
         $userModel = new UserModel();
+        $roleModel = new RoleModel();
+        $teamModel = new TeamModel();
         $user = $userModel->find($id);
         if (!$user) {
             return redirect()->to('/admin/users')->with('error', 'User not found.');
         }
 
         if (strtolower((string) $this->request->getMethod()) === 'post') {
+            $username = trim((string) $this->request->getPost('username') ?? '');
+            $first_name = trim((string) $this->request->getPost('first_name') ?? '');
+            $last_name = trim((string) $this->request->getPost('last_name') ?? '');
+            $email = trim((string) $this->request->getPost('email') ?? '');
+            $employee_id = trim((string) $this->request->getPost('employee_id') ?? '');
+            $phone = trim((string) $this->request->getPost('phone') ?? '');
+            $role_id = (int) $this->request->getPost('role_id');
+            $team_id = (int) $this->request->getPost('team_id');
             $reportingManagerId = $this->request->getPost('reporting_manager_id');
             $isActive = $this->request->getPost('is_active');
             $newPassword = $this->request->getPost('new_password');
 
-            $updates = [];
-            $updates['reporting_manager_id'] = ($reportingManagerId === '' || $reportingManagerId === null) ? null : (int) $reportingManagerId;
-            $updates['is_active'] = in_array($isActive, ['1', 'on'], true) ? 1 : 0;
+            $errors = [];
+            if (strlen($username) < 1) {
+                $errors[] = 'Username / Employee ID is required.';
+            } elseif (strlen($username) > 64) {
+                $errors[] = 'Username must not exceed 64 characters.';
+            }
+            if (strlen($first_name) < 1) {
+                $errors[] = 'First name is required.';
+            } elseif (strlen($first_name) > 128) {
+                $errors[] = 'First name must not exceed 128 characters.';
+            }
+            if (strlen($last_name) < 1) {
+                $errors[] = 'Last name is required.';
+            } elseif (strlen($last_name) > 128) {
+                $errors[] = 'Last name must not exceed 128 characters.';
+            }
+            if (strlen($email) < 1) {
+                $errors[] = 'Email is required.';
+            } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = 'Invalid email format.';
+            } else {
+                $existing = $userModel->where('email', $email)->where('id !=', $id)->first();
+                if ($existing) {
+                    $errors[] = 'This email is already used by another user.';
+                }
+            }
+            if (strlen($employee_id) > 64) {
+                $errors[] = 'Employee ID must not exceed 64 characters.';
+            }
+            if (strlen($phone) > 32) {
+                $errors[] = 'Phone must not exceed 32 characters.';
+            }
+            if ($role_id < 1) {
+                $errors[] = 'Role is required.';
+            }
+            if ($team_id < 1) {
+                $errors[] = 'Team is required.';
+            }
+            if ($newPassword !== null && $newPassword !== '') {
+                if (strlen($newPassword) < 8) {
+                    $errors[] = 'Password must be at least 8 characters.';
+                } elseif ($newPassword !== $this->request->getPost('confirm_password')) {
+                    $errors[] = 'Password and confirmation do not match.';
+                }
+            }
+
+            if (!empty($errors)) {
+                $user = array_merge($user, [
+                    'username'     => $username,
+                    'first_name'   => $first_name,
+                    'last_name'    => $last_name,
+                    'email'        => $email,
+                    'employee_id'  => $employee_id,
+                    'phone'        => $phone,
+                    'role_id'      => $role_id,
+                    'team_id'      => $team_id,
+                ]);
+                return $this->userEditForm($id, $user, $errors);
+            }
+
+            $updates = [
+                'username'            => $username,
+                'first_name'          => $first_name,
+                'last_name'           => $last_name,
+                'name'                => trim($first_name . ' ' . $last_name),
+                'email'               => $email,
+                'employee_id'         => $employee_id !== '' ? $employee_id : null,
+                'phone'               => $phone !== '' ? $phone : null,
+                'role_id'             => $role_id,
+                'team_id'             => $team_id,
+                'reporting_manager_id'=> ($reportingManagerId === '' || $reportingManagerId === null) ? null : (int) $reportingManagerId,
+                'is_active'           => in_array($isActive, ['1', 'on'], true) ? 1 : 0,
+            ];
 
             if ($newPassword !== null && $newPassword !== '') {
-                $rules = [
-                    'new_password'     => 'required|min_length[8]',
-                    'confirm_password'=> 'required|matches[new_password]',
-                ];
-                if (!$this->validate($rules)) {
-                    return redirect()->back()->withInput()->with('error', 'Password must be at least 8 characters and must match.');
-                }
                 $updates['password'] = $newPassword;
             }
 
@@ -249,9 +332,9 @@ class AdminController extends BaseController
             if (session()->get('user_role') === 'Super Admin') {
                 $monthlyCost = (float) ($this->request->getPost('monthly_cost') ?? 0);
                 $costModel = new ResourceCostModel();
-                $existing = $costModel->where('user_id', $id)->first();
-                if ($existing) {
-                    $costModel->update($existing['id'], [
+                $existingCost = $costModel->where('user_id', $id)->first();
+                if ($existingCost) {
+                    $costModel->update($existingCost['id'], [
                         'monthly_cost' => $monthlyCost,
                         'updated_at'   => date('Y-m-d H:i:s'),
                     ]);
@@ -264,29 +347,38 @@ class AdminController extends BaseController
                 }
             }
 
-            $msg = 'User updated successfully.';
-            if (!empty($updates['password'])) {
-                $msg = 'User updated. Password reset successfully.';
-            }
+            $msg = !empty($updates['password']) ? 'User updated. Password reset successfully.' : 'User updated successfully.';
             return redirect()->to('/admin/users')->with('success', $msg);
         }
 
+        return $this->userEditForm($id, $user, []);
+    }
+
+    protected function userEditForm(int $id, array $user, array $errors): string
+    {
+        $userModel = new UserModel();
         $roleModel = new RoleModel();
+        $teamModel = new TeamModel();
         $roleIds = $roleModel->whereIn('name', ['Manager', 'Product Lead', 'Super Admin'])->findColumn('id');
         $managers = $roleIds ? $userModel->whereIn('role_id', $roleIds)->findAll() : [];
+        $roles = $roleModel->findAll();
+        $teams = $teamModel->orderBy('name')->findAll();
 
         $costModel = new ResourceCostModel();
         $costRow = $costModel->getForUser($id);
         $user['monthly_cost'] = $costRow ? (float) $costRow['monthly_cost'] : '';
-
         $user['role_name'] = ($userModel->getRole($user)['name'] ?? '—');
         $user['team_name'] = ($userModel->getTeam($user)['name'] ?? '—');
 
         $smarty = new SmartyEngine();
         return $smarty->render('admin/user_edit.tpl', [
             'title'         => 'Edit User',
+            'nav_active'    => 'users',
             'user'          => $user,
             'managers'      => $managers,
+            'roles'         => $roles,
+            'teams'         => $teams,
+            'errors'        => $errors,
             'user_email'    => session()->get('user_email'),
             'user_role'     => session()->get('user_role'),
             'is_super_admin'=> session()->get('user_role') === 'Super Admin',
@@ -407,24 +499,78 @@ class AdminController extends BaseController
                 return redirect()->back()->withInput()->with('error', 'Product name is required.');
             }
             $productModel = new ProductModel();
-            $productModel->insert([
-                'name' => trim($this->request->getPost('name')),
+            $teamId = $this->request->getPost('team_id');
+            $githubUrl = trim((string) $this->request->getPost('github_repo_url'));
+            $productModel->skipValidation(true)->insert([
+                'name'             => trim($this->request->getPost('name')),
+                'github_repo_url'  => $githubUrl !== '' ? $githubUrl : null,
+                'product_lead_id'  => $this->request->getPost('product_lead_id') ?: null,
+                'team_id'         => ($teamId !== '' && $teamId !== null) ? (int) $teamId : null,
             ]);
             return redirect()->to('/admin/products/manage')->with('success', 'Product added successfully.');
         }
+
         $userModel = new UserModel();
         $roleModel = new RoleModel();
         $leadIds = $roleModel->where('name', 'Product Lead')->findColumn('id');
         $leads = $leadIds ? $userModel->whereIn('role_id', $leadIds)->findAll() : [];
+        $teamModel = new \App\Models\TeamModel();
+        $teams = $teamModel->orderBy('name')->findAll();
 
         $smarty = new SmartyEngine();
         return $smarty->render('admin/product_form.tpl', [
-            'title'   => 'Add Product',
-            'product' => null,
-            'leads'   => $leads,
-            'user_email' => session()->get('user_email'),
-            'csrf'    => csrf_token(),
-            'hash'    => csrf_hash(),
+            'title'     => 'Add Product',
+            'product'   => null,
+            'leads'     => $leads,
+            'teams'     => $teams,
+            'user_email'=> session()->get('user_email'),
+            'csrf'      => csrf_token(),
+            'hash'      => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Add product from GitHub repository URL (FR-005d).
+     * Fetches repo name from GitHub API when possible; otherwise uses owner/repo from URL.
+     */
+    public function productAddFromGitHub()
+    {
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
+            $githubUrl = trim((string) $this->request->getPost('github_repo_url'));
+            if ($githubUrl === '') {
+                return redirect()->back()->withInput()->with('error', 'GitHub repository URL is required.');
+            }
+            $github = new GitHubService();
+            $parsed = $github->parseRepoUrl($githubUrl);
+            if (!$parsed) {
+                return redirect()->back()->withInput()->with('error', 'Invalid GitHub URL. Use format: https://github.com/owner/repo');
+            }
+            $productName = null;
+            $repoData = $github->fetchRepo($parsed['owner'], $parsed['repo']);
+            if ($repoData) {
+                $productName = $repoData['name'] ?? $repoData['full_name'] ?? "{$parsed['owner']}/{$parsed['repo']}";
+            } else {
+                $productName = "{$parsed['owner']}/{$parsed['repo']}";
+            }
+            $productModel = new ProductModel();
+            $productModel->skipValidation(true)->insert([
+                'name'            => $productName,
+                'github_repo_url' => $githubUrl,
+                'product_lead_id' => null,
+                'team_id'         => null,
+            ]);
+            $newId = $productModel->getInsertID();
+            return redirect()->to("/admin/products/edit/{$newId}")->with('success', 'Product added from GitHub. Set the Team below so your team can log time on the timesheet. Then sync Issues from the product view page.');
+        }
+        $smarty = new SmartyEngine();
+        return $smarty->render('admin/product_add_from_github.tpl', [
+            'title'           => 'Add Product from GitHub',
+            'github_repo_url' => $this->request->getOldInput('github_repo_url'),
+            'user_email'      => session()->get('user_email'),
+            'success'         => session()->getFlashdata('success'),
+            'error'           => session()->getFlashdata('error'),
+            'csrf'            => csrf_token(),
+            'hash'            => csrf_hash(),
         ]);
     }
 
@@ -440,9 +586,13 @@ class AdminController extends BaseController
             if (!$this->validate($rules)) {
                 return redirect()->back()->withInput()->with('error', 'Product name is required.');
             }
+            $teamId = $this->request->getPost('team_id');
+            $githubUrl = trim((string) $this->request->getPost('github_repo_url'));
             $productModel->update($id, [
                 'name'             => trim($this->request->getPost('name')),
+                'github_repo_url'  => $githubUrl !== '' ? $githubUrl : null,
                 'product_lead_id'  => $this->request->getPost('product_lead_id') ?: null,
+                'team_id'         => ($teamId !== '' && $teamId !== null) ? (int) $teamId : null,
             ]);
             return redirect()->to('/admin/products/manage')->with('success', 'Product updated successfully.');
         }
@@ -450,6 +600,8 @@ class AdminController extends BaseController
         $roleModel = new RoleModel();
         $leadIds = $roleModel->where('name', 'Product Lead')->findColumn('id');
         $leads = $leadIds ? $userModel->whereIn('role_id', $leadIds)->findAll() : [];
+        $teamModel = new \App\Models\TeamModel();
+        $teams = $teamModel->orderBy('name')->findAll();
         $members = $productModel->getMembers($id);
         $allUsers = $userModel->findAll();
 
@@ -458,6 +610,7 @@ class AdminController extends BaseController
             'title'        => 'Edit Product',
             'product'      => $product,
             'leads'        => $leads,
+            'teams'        => $teams,
             'all_users'    => $allUsers,
             'members'      => $members,
             'user_email'   => session()->get('user_email'),
@@ -465,6 +618,62 @@ class AdminController extends BaseController
             'error'        => session()->getFlashdata('error'),
             'csrf'         => csrf_token(),
             'hash'         => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Email / Gmail SMTP settings for approval and rejection notifications (FR-035a).
+     */
+    public function emailSettings()
+    {
+        $emailService = new EmailService();
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
+            $host = trim((string) $this->request->getPost('SMTPHost'));
+            $user = trim((string) $this->request->getPost('SMTPUser'));
+            $pass = trim((string) $this->request->getPost('SMTPPass'));
+            $existingConfig = $emailService->getConfig();
+            if (empty($pass) && !empty($existingConfig['SMTPPass'])) {
+                $pass = $existingConfig['SMTPPass'];
+            }
+            if (empty($host) || empty($user) || empty($pass)) {
+                return redirect()->back()->with('error', 'SMTP Host, Username, and Password are required.');
+            }
+            if (!filter_var($user, FILTER_VALIDATE_EMAIL)) {
+                return redirect()->back()->with('error', 'SMTP Username must be a valid email address.');
+            }
+            $config = [
+                'protocol'  => 'smtp',
+                'SMTPHost'  => $host,
+                'SMTPUser'  => $user,
+                'SMTPPass'  => $pass,
+                'SMTPPort'  => (int) ($this->request->getPost('SMTPPort') ?: 587),
+                'SMTPCrypto'=> $this->request->getPost('SMTPCrypto') ?: 'tls',
+                'fromEmail' => trim((string) $this->request->getPost('fromEmail')) ?: $user,
+                'fromName'  => trim((string) $this->request->getPost('fromName')) ?: 'RTMS',
+            ];
+            if ($emailService->saveConfig($config)) {
+                $msg = 'Email settings saved.';
+                if ($this->request->getPost('test') === '1') {
+                    $testEmail = new EmailService();
+                    $sent = $testEmail->sendTestEmail($user);
+                    $msg = $sent ? 'Settings saved. Test email sent to ' . $user : 'Settings saved but test email failed. Check your App Password.';
+                }
+                return redirect()->to('/admin/settings/email')->with('success', $msg);
+            }
+            return redirect()->back()->with('error', 'Failed to save settings.');
+        }
+        $config = $emailService->getConfig();
+        $smarty = new SmartyEngine();
+        return $smarty->render('admin/email_settings.tpl', [
+            'title'          => 'Email Settings',
+            'nav_active'     => 'email_settings',
+            'config'         => $config,
+            'is_configured'  => $emailService->isConfigured(),
+            'user_email'     => session()->get('user_email'),
+            'success'        => session()->getFlashdata('success'),
+            'error'          => session()->getFlashdata('error'),
+            'csrf'           => csrf_token(),
+            'hash'           => csrf_hash(),
         ]);
     }
 

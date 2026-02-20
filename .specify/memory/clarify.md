@@ -402,6 +402,139 @@ Answer each question below. Your responses will be captured and used to update t
 
 ---
 
+## 12. Phase 13 (v1.9.2) Clarifications
+
+*Questions for the 7 new requirements: editable profile, GitHub products, issues as tasks, product–team mapping, timesheet flow, Gmail SMTP, unified dashboard.*
+
+### Q13.1 Editable profile: email change
+**Context**: FR-000b1—user edits first name, last name, email, employee_id. Email is used for login.
+
+**Question**: When a user changes their email, should the system (a) require email uniqueness and block duplicates, (b) require email verification (e.g., confirmation link) before updating, or (c) allow immediate update with uniqueness check only?
+
+**Response**: [x] C) Allow immediate update with uniqueness check only. No email verification required; editable only.
+
+---
+
+### Q13.2 Products from GitHub vs manual products
+**Context**: FR-005d says Super Admin adds repo → product displayed. FR-006 says Product Lead/Manager can create products. 2.1 says products are "sourced from GitHub."
+
+**Question**: Are both flows valid?
+- **A)** GitHub-only: All products come from GitHub repos; Super Admin adds repo → product created
+- **B)** Dual: Super Admin adds GitHub products; Product Lead/Manager can also create products manually (no repo)
+- **C)** GitHub-first: Product creation always starts with repo; Product Lead can add repo to existing product
+
+**Response**: [x] B) Dual. Super Admin adds GitHub products; Product Lead/Manager can also create products manually (no repo).
+
+---
+
+### Q13.3 Product metadata from GitHub
+**Context**: Super Admin "adds GitHub repository details"; product is "pulled from GitHub."
+
+**Question**: What product data comes from GitHub vs manual entry?
+- **A)** Name from repo name; timeline/max hours manual
+- **B)** All manual: Super Admin enters name, timeline, max hours; repo URL only for sync
+- **C)** Full sync: repo name, description (if any) as product name; timeline optional from GitHub Projects/Milestones
+- **D)** Other: _[Specify]_
+
+**Response**: [x] Name and timeline from GitHub. Repo name as product name; timeline from GitHub (e.g., Projects/Milestones) where available.
+
+---
+
+### Q13.4 Leave products and GitHub
+**Context**: Leave products (Holiday, Sick Leave, Planned Leave, Training) exist; product_type='leave'.
+
+**Question**: Are leave products from GitHub or always manually created (no repo)?
+
+**Response**: [x] Manual only. Leave products are always manually created (no repo).
+
+---
+
+### Q13.5 Product–team mapping: unmapped products
+**Context**: FR-005e—Super Admin maps product to team; only team members can bill.
+
+**Question**: If a product has no team mapped (team_id=null), can (a) anyone bill, (b) no one bill until mapped, or (c) product_members (explicit add) determine who can bill?
+
+**Response**: [x] B) No one can bill until product is mapped to a team.
+
+---
+
+### Q13.6 Product–team mapping: leave products
+**Context**: Leave products are "available to all users for time logging."
+
+**Question**: Do leave products require team mapping? (Assumption: No—they are always billable by all.)
+
+**Response**: [x] Yes—leave products are exempt. No team mapping required; always billable by all users.
+
+---
+
+### Q13.7 Timesheet flow: Product-first UX
+**Context**: FR-015a—Option Product or Task first; display relevant list.
+
+**Question**: When user selects "Product first," what happens next?
+- **A)** Show products list → user picks product → show tasks under that product → user picks task → log time
+- **B)** Show products list → user picks product → log time at product level (no task; generic product time)
+- **C)** Other: _[Specify]_
+
+**Response**: [x] Two options: (1) Product—show products list; user picks product. (2) Task—show tasks list. If Product selected: list products → pick product → then show tasks under that product → pick task → log. If Task selected: list tasks directly.
+
+---
+
+### Q13.8 Timesheet flow: Task-first UX
+**Context**: FR-015a—Option Task first.
+
+**Question**: When user selects "Task first," how are tasks listed?
+- **A)** Show all tasks from products user can access (filtered by product–team mapping)
+- **B)** Ask for product first, then show tasks under that product
+- **C)** Show tasks grouped by product (expandable/collapsible)
+- **D)** Other: _[Specify]_
+
+**Response**: [x] Same as Q13.7. Task selected → show tasks list directly (from products user can access, filtered by product–team mapping).
+
+---
+
+### Q13.9 Gmail SMTP: validation meaning
+**Context**: FR-035a—"approval and rejection emails are validated and sent."
+
+**Question**: What does "validated" mean?
+- **A)** Test SMTP connection when Super Admin saves config; show success/error
+- **B)** Validate config format (host, port, credentials) before save
+- **C)** Both: format validation + optional "Test connection" button
+- **D)** Other: _[Specify]_
+
+**Response**: [x] C) Both. Format validation before save + optional "Test connection" button.
+
+---
+
+### Q13.10 Gmail SMTP: scope
+**Context**: FR-035a specifies Gmail for approval/rejection. FR-035 says "Gmail SMTP or equivalent."
+
+**Question**: For approval/rejection emails, is Gmail SMTP required, or can any SMTP (e.g., SendGrid, Outlook) be configured?
+
+**Response**: [x] Any SMTP allowed. Configurable for any provider; Gmail used for testing initially.
+
+---
+
+### Q13.11 Unified dashboard: default route
+**Context**: FR-040—single dashboard; content changes by role. Currently /admin/dashboard for Manager+Super Admin; main dashboard for others.
+
+**Question**: After merge, what is the default landing URL after login?
+- **A)** Single route /dashboard (or /) for all roles
+- **B)** Keep /admin/dashboard for Manager/Super Admin; / or /dashboard for others
+- **C)** Single / with role-based redirect (e.g., Employee → /tasks, Manager → dashboard with admin widgets)
+
+**Response**: [x] C) Role-based redirect. Single / (or /dashboard); content and redirect vary by role (e.g., Employee → tasks, Manager → dashboard with admin widgets).
+
+---
+
+### Q13.12 Unified dashboard: Super Admin widgets
+**Context**: Admin dashboard has: Overall Hours, Work Hours Summary, Resource Allocation, Pending Approvers, Financial Summary.
+
+**Question**: In the unified dashboard, does Super Admin see (a) the same admin widgets as today, (b) a superset (admin + employee widgets), or (c) role-merged view (e.g., admin metrics + pending approvals for products they lead)?
+
+**Response**: [x] C) Merged view. Role-merged: admin metrics + role-appropriate widgets (e.g., pending approvals for products they lead).
+
+---
+
 ## Summary
 
 | Category        | Questions | Resolved |
@@ -417,8 +550,9 @@ Answer each question below. Your responses will be captured and used to update t
 | Auth & Profile  | 5         | 5        |
 | Email Reminders | 6         | 6        |
 | Session, URL, Cost | 3     | 3        |
+| **Phase 13 (v1.9.2)** | **12** | **12** |
 
-**Next step**: All clarification questions resolved. Proceed to implementation per plan and tasks.
+**Next step**: All clarification questions resolved. Proceed to Phase 13 implementation (T130–T136) per plan and tasks.
 
 ---
 
@@ -445,4 +579,4 @@ Answer each question below. Your responses will be captured and used to update t
 
 ---
 
-**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Email reminders, Session/URL/Cost clarifications; Post-Plan resolved)
+**Version**: 1.9.2 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 13 Q13.1–Q13.12 resolved)

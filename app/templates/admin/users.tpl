@@ -84,8 +84,7 @@
             <td>{if ($u.is_active|default:1)}<span class="admin-badge admin-badge-active">Active</span>{else}<span class="admin-badge admin-badge-inactive">Disabled</span>{/if}</td>
             <td>
                 <div class="admin-actions">
-                    <a href="/admin/users/edit/{$u.id}" title="View/Edit">🔍</a>
-                    <a href="/admin/users/edit/{$u.id}" title="Edit">✎</a>
+                    <a href="/admin/users/edit/{$u.id}" class="btn btn-sm" title="Edit user">Edit</a>
                     <form method="post" action="/admin/users/{$u.id}/toggle-active" style="display:inline;" onsubmit="return confirm('{if ($u.is_active|default:1)}Disable{else}Enable{/if} this user?');">
                         <input type="hidden" name="{$csrf}" value="{$hash}">
                         <button type="submit" title="{if ($u.is_active|default:1)}Disable{else}Enable{/if}">✕</button>

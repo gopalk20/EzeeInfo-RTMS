@@ -148,10 +148,10 @@ PHP 8.4 + CodeIgniter 4 + Smarty + MySQL. No framework sprawl. Business logic in
 
 The RTMS operates on core entities, each with defined responsibilities:
 
-- **User**: username, email, first_name, last_name, phone, password (bcrypt/argon2-hashed), role_id, team_id, reporting_manager_id, is_active; profile shows Name, email, current role, team name, reporting manager
+- **User**: username, email, first_name, last_name, employee_id, phone, password (bcrypt/argon2-hashed), role_id, team_id, reporting_manager_id, is_active; profile shows Name, email, employee ID, current role, team name, reporting manager; profile editable (first name, last name, email, employee_id) by logged-in user
 - **Team**: id, name; users belong to a team
-- **Product**: Name, timeline, max allowed time, GitHub repo link, members, is_disabled, product_type (null=normal, 'leave'=leave); optional link to Project; disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) available for all users
-- **Task**: Work units from GitHub sync (Issues + PRs); status To Do/In Progress/Completed; assignee; linked branch (one per task); optional milestone link
+- **Product**: Sourced from GitHub repository (Super Admin adds repo details); Name, timeline, max allowed time, GitHub repo link, team_id (mapped team; only team members can bill), members, is_disabled, product_type (null=normal, 'leave'=leave); optional link to Project; disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) available for all users
+- **Task**: Work units from GitHub sync (Issues synced and displayed under each product); status To Do/In Progress/Completed; assignee; linked branch (one per task); optional milestone link
 - **Milestone**: Time-bounded deliverable; optional link to tasks; release status
 - **TimeEntry**: Logged time against a task; work_date, hours, is_rework flag, status (pending_approval, approved); subject to D+N policy and approval workflow; employee can edit while pending_approval
 - **Approval**: Task approval; Manager-only; records approver, timestamp, status; locks task and time entries
@@ -193,7 +193,7 @@ RBAC rules are evaluated at the filter/controller level and cannot be bypassed.
 | Database | MySQL 8.x | UTF8MB4; transactions for multi-step operations |
 | External API | GitHub REST/GraphQL | Rate limiting, token rotation, error handling |
 
-**Integration Points**: GitHub (Issues + PRs, Webhooks for push/merge); Email (SMTP) for reminder notifications; future: HR/payroll systems via defined APIs.
+**Integration Points**: GitHub (Issues + PRs, Webhooks for push/merge); Email (Gmail SMTP) for approval/rejection and reminder notifications; future: HR/payroll systems via defined APIs.
 
 **Email & Reminders**: Configurable email (SMTP); .env for credentials, Admin UI for non-sensitive. Employee reminder: weekly (Mon–Fri; missed = any work day fewer than 8h) or monthly (last day of month). Approver reminder: consolidated, weekly/monthly. Cron/CLI triggers automatically. Super Admin configures templates (placeholders: employee_name, period, missing_days, approval_count, etc.). Only Super Admin edits user cost; Manager views per-day.
 

@@ -8,11 +8,59 @@
 {if $error}
     <div class="alert alert-error">{$error|escape}</div>
 {/if}
+{if $errors}
+    <div class="alert alert-error">
+        <ul style="margin:0; padding-left:20px;">
+            {foreach $errors as $err}
+            <li>{$err|escape}</li>
+            {/foreach}
+        </ul>
+    </div>
+{/if}
 
-<p style="color:#666; margin-bottom:20px;">Edit reporting manager, status, monthly cost, or reset password for <strong>{($user.first_name|default:'')|cat:' '|cat:($user.last_name|default:'')|escape}</strong> ({$user.email|escape})</p>
-
-<form method="post" action="/admin/users/edit/{$user.id}" style="max-width: 500px;">
+<form method="post" action="/admin/users/edit/{$user.id}" style="max-width: 600px;">
     <input type="hidden" name="{$csrf}" value="{$hash}">
+
+    <div class="form-group">
+        <label for="username">Username / Employee ID <span style="color:#991b1b;">*</span></label>
+        <input type="text" name="username" id="username" value="{$user.username|default:''|escape}" maxlength="64" required style="width:100%; padding: 8px 12px;">
+    </div>
+    <div class="form-group">
+        <label for="first_name">First Name <span style="color:#991b1b;">*</span></label>
+        <input type="text" name="first_name" id="first_name" value="{$user.first_name|default:''|escape}" maxlength="128" required style="width:100%; padding: 8px 12px;">
+    </div>
+    <div class="form-group">
+        <label for="last_name">Last Name <span style="color:#991b1b;">*</span></label>
+        <input type="text" name="last_name" id="last_name" value="{$user.last_name|default:''|escape}" maxlength="128" required style="width:100%; padding: 8px 12px;">
+    </div>
+    <div class="form-group">
+        <label for="email">Email <span style="color:#991b1b;">*</span></label>
+        <input type="email" name="email" id="email" value="{$user.email|default:''|escape}" maxlength="255" required style="width:100%; padding: 8px 12px;">
+    </div>
+    <div class="form-group">
+        <label for="employee_id">Employee ID (alt)</label>
+        <input type="text" name="employee_id" id="employee_id" value="{$user.employee_id|default:''|escape}" maxlength="64" placeholder="Optional" style="width:100%; padding: 8px 12px;">
+    </div>
+    <div class="form-group">
+        <label for="phone">Phone</label>
+        <input type="text" name="phone" id="phone" value="{$user.phone|default:''|escape}" maxlength="32" style="width:100%; padding: 8px 12px;">
+    </div>
+    <div class="form-group">
+        <label for="role_id">Role <span style="color:#991b1b;">*</span></label>
+        <select name="role_id" id="role_id" required style="width:100%; padding: 8px 12px;">
+            {foreach $roles as $r}
+            <option value="{$r.id}" {if isset($user.role_id) && $user.role_id == $r.id}selected{/if}>{$r.name|escape}</option>
+            {/foreach}
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="team_id">Team <span style="color:#991b1b;">*</span></label>
+        <select name="team_id" id="team_id" required style="width:100%; padding: 8px 12px;">
+            {foreach $teams as $t}
+            <option value="{$t.id}" {if isset($user.team_id) && $user.team_id == $t.id}selected{/if}>{$t.name|escape}</option>
+            {/foreach}
+        </select>
+    </div>
 
     {if $is_super_admin}
     <div class="form-group">

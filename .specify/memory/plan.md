@@ -1,13 +1,13 @@
 # Implementation Plan: RTMS Baseline
 
 **Branch**: `feature/rtms-implementation` | **Date**: 2026-02-19 | **Spec**: [.specify/memory/spec.md](.specify/memory/spec.md)  
-**Input**: Baseline specification, constitution v1.9.1, clarify.md (all resolved)
+**Input**: Baseline specification, constitution v1.9.1, clarify.md (all resolved incl. Phase 13 Q13.1–Q13.12)
 
 ---
 
 ## Summary
 
-Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance, Super Admin), user profile (Name, email, role, team), logout, self-service password reset, Super Admin add user and reset password, time logging with D+N policy, rework tracking, Product Lead/Manager approvals, Finance reports with export. **Added (v1.9.x)**: Cloud security (HTTPS, secure cookies, rate limiting), 24h session idle (any page load refreshes), URL domain-only, Super Admin defines user cost (Manager views per-day), email reminders (employee missed timesheet: Mon–Fri fewer than 8h per work day or month end; approver consolidated weekly/monthly), configurable email templates.
+Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance, Super Admin), user profile (Name, email, role, team), logout, self-service password reset, Super Admin add user and reset password, time logging with D+N policy, rework tracking, Product Lead/Manager approvals, Finance reports with export. **Added (v1.9.x)**: Cloud security (HTTPS, secure cookies, rate limiting), 24h session idle (any page load refreshes), URL domain-only, Super Admin defines user cost (Manager views per-day), email reminders (employee missed timesheet: Mon–Fri fewer than 8h per work day or month end; approver consolidated weekly/monthly), configurable email templates. **Added (v1.9.2)**: Editable user profile (first name, last name, email, employee_id; no verification), dual product flow (GitHub + manual), products name/timeline from GitHub where applicable, leave products manual only, product–team mapping (no billing until mapped; leave exempt), timesheet Product/Task-first flow, any SMTP (format + test connection), unified role-based dashboard with merged view.
 
 **Technical approach**: Layered architecture (Controllers → Models/Services → Database). New schema via migrations. GitHub Webhooks for real-time status. RBAC via Filters. Configuration in database/env for BR-1, BR-2. Email via CodeIgniter Email (SMTP). Reminders via CLI + cron.
 
@@ -264,13 +264,29 @@ writable/
 
 ---
 
+### Phase 13: Profile Edit, GitHub Products, Product–Team Mapping, Timesheet Flow, SMTP, Unified Dashboard (v1.9.2)
+
+*Clarified per Q13.1–Q13.12.*
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 13.1 | Editable user profile: first name, last name, email, employee_id; logged-in user only; immediate update with uniqueness check; no email verification (Q13.1) | FR-000b1 |
+| 13.2 | **Dual product flow**: (a) Super Admin adds GitHub repo → product from repo (name/timeline from GitHub per Q13.3); (b) Product Lead/Manager create manual products (no repo). Leave products always manual (Q13.2, Q13.4) | FR-005d, FR-006 |
+| 13.3 | Issues as tasks: sync GitHub Issues from repository; display as tasks under each product in task portal | FR-008b |
+| 13.4 | Product–team mapping: Super Admin maps product to team; only team members can bill. **No team mapped = no one can bill** (Q13.5). Leave products exempt (Q13.6) | FR-005e |
+| 13.5 | **Timesheet flow** (Q13.7, Q13.8): Option (1) Product or (2) Task. **Product first**: list products → pick product → show tasks under product → pick task → log. **Task first**: list tasks (from products user can access, filtered by team mapping) → pick task → log | FR-015a |
+| 13.6 | **SMTP config** (any provider; Gmail for testing): format validation before save + optional "Test connection" button; send approval/rejection emails (Q13.9, Q13.10) | FR-035a |
+| 13.7 | **Unified dashboard** (Q13.11, Q13.12): Single route; role-based redirect (Employee→tasks, Manager→admin widgets). Merged view: admin metrics + role-appropriate widgets | FR-040 |
+
+---
+
 ## Data Model (High-Level)
 
 ```text
-users (existing) + role_id, reporting_manager_id, is_active
+users (existing) + role_id, reporting_manager_id, is_active, employee_id
 roles (Employee, Product Lead, Manager, Finance, Super Admin)
 config (key, value) — BR-1, BR-2, working_days, standard_hours; session_expiration (86400)
-products (name, start_date, end_date, max_allowed_hours, github_repo_url, is_disabled, product_type)
+products (name, start_date, end_date, max_allowed_hours, github_repo_url, team_id, is_disabled, product_type)
 product_members (product_id, user_id)
 tasks (product_id, github_issue_id, title, status, assignee_id, linked_branch, milestone_id)
 milestones (product_id, name, due_date, release_status)
@@ -294,6 +310,7 @@ audit_log (entity, entity_id, user_id, action, before, after, created_at)
 | A5 | Existing UserModel/Users table can be extended with role_id | Low |
 | A6 | Email: .env for SMTP creds; Admin UI for non-sensitive; cron calls CLI for reminders | Low |
 | A7 | Employee "missed" = any Mon–Fri work day with fewer than 8h; monthly reminder runs last day of month | Low |
+| A8 | Phase 13: Dual product flow (GitHub + manual); leave products manual only; no billing until team mapped; leave exempt; profile edit no verification; any SMTP; role-based dashboard (Q13.1–Q13.12) | Low |
 
 ---
 
@@ -335,7 +352,8 @@ No constitution violations requiring justification. Plan follows layered archite
 | **Phase 10 (Leave, Dashboard, Dept)** | ✓ Complete | Leave products (product_type); Admin Dashboard (Manager+Super Admin); Team Timesheet department filter; Manage Users form fix |
 | **Phase 11 (Security, Session, URL, Cost)** | ✓ Partial | Cloud security (CSRF, SecureHeaders, rate limit); 24h session idle; user cost in Manage Users > Edit; Manager per-day view in Team Timesheet; SECURITY.md; T114 (URL masking) TODO |
 | **Phase 12 (Email Reminders)** | Pending | SMTP config; employee reminder (Mon–Fri fewer than 8h, month end); approver consolidated; CLI + cron; configurable templates |
+| **Phase 13 (v1.9.2)** | Pending | Editable profile; products from GitHub; issues as tasks; product–team mapping; timesheet Product/Task flow; Gmail SMTP; unified dashboard |
 
 ---
 
-**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 11 partial; costing redesign; security; user cost in Manage Users)
+**Version**: 1.9.2 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 13 refined per Q13.1–Q13.12 clarifications)

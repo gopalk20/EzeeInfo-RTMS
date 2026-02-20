@@ -28,7 +28,19 @@ class TimesheetController extends BaseController
         $entries = $timeEntryModel->getByUser($userId, $from, $to);
 
         $taskModel = new TaskModel();
-        $tasks = $taskModel->getByAssignee($userId);
+        $productModel = new ProductModel();
+        $user = (new UserModel())->find($userId);
+        $userTeamId = isset($user['team_id']) && $user['team_id'] !== '' ? (int) $user['team_id'] : null;
+        $tasks = $taskModel->getBillableByAssignee($userId, $userTeamId);
+        $products = $productModel->getBillableForUser($userTeamId);
+        $tasksByProduct = [];
+        foreach ($tasks as $t) {
+            $pid = (int) ($t['product_id'] ?? 0);
+            if (!isset($tasksByProduct[$pid])) {
+                $tasksByProduct[$pid] = [];
+            }
+            $tasksByProduct[$pid][] = $t;
+        }
 
         $configService = new ConfigService();
 
@@ -47,11 +59,20 @@ class TimesheetController extends BaseController
         }
 
         $smarty = new SmartyEngine();
+        $flow = $this->request->getGet('flow') ?: 'task';
+        if ($flow !== 'product') {
+            $flow = 'task';
+        }
+        $tasksByProductJson = json_encode($tasksByProduct);
         return $smarty->render('timesheet/index.tpl', [
             'title'              => 'My Timesheet',
             'nav_active'          => 'timesheet',
             'entries'            => $entries,
             'tasks'              => $tasks,
+            'products'           => $products,
+            'tasks_by_product'   => $tasksByProduct,
+            'tasks_by_product_json' => $tasksByProductJson,
+            'flow_mode'          => $flow,
             'default_work_date'   => $defaultWorkDate,
             'user_email'         => $session->get('user_email'),
             'user_role'          => $session->get('user_role'),
@@ -134,7 +155,9 @@ class TimesheetController extends BaseController
             }
         }
 
-        $tasks = $taskModel->getByAssignee($userId);
+        $user = (new UserModel())->find($userId);
+        $userTeamId = isset($user['team_id']) && $user['team_id'] !== '' ? (int) $user['team_id'] : null;
+        $tasks = $taskModel->getBillableByAssignee($userId, $userTeamId);
 
         $entries = $timeEntryModel->getByUser($userId, $from, $to);
 
@@ -635,9 +658,16 @@ class TimesheetController extends BaseController
         $product = $task['product_id'] ? $productModel->find($task['product_id']) : null;
         $isLeave = $product && ($product['product_type'] ?? null) === 'leave';
         $isAssigned = $task['assignee_id'] !== null && (int) $task['assignee_id'] === $userId;
-        if (!$isLeave && !$isAssigned) {
+        $user = (new UserModel())->find($userId);
+        $userTeamId = isset($user['team_id']) && $user['team_id'] !== '' ? (int) $user['team_id'] : null;
+        $productTeamId = isset($product['team_id']) && $product['team_id'] !== '' ? (int) $product['team_id'] : null;
+        $isInProductTeam = $productTeamId !== null && $userTeamId !== null && $productTeamId === $userTeamId;
+        if (!$isLeave && !$isAssigned && !($isInProductTeam && $task['assignee_id'] === null)) {
             log_message('error', "Time entry task check failed: taskId={$taskId}, userId={$userId}");
             return redirect()->to('/timesheet?err=' . urlencode('Invalid task or not assigned to you.'));
+        }
+        if (!$isLeave && ($productTeamId === null || $userTeamId === null || $productTeamId !== $userTeamId)) {
+            return redirect()->to('/timesheet?err=' . urlencode('You cannot bill for this product. Only members of the mapped team can log time.'));
         }
         if (!empty($task['locked'])) {
             return redirect()->to('/timesheet?err=' . urlencode('Cannot log time for locked/completed task.'));

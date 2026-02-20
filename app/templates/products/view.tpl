@@ -12,10 +12,13 @@
 <p>Start: {$product.start_date|escape} | End: {$product.end_date|escape}</p>
 {if $product.github_repo_url}
 <p>GitHub: <a href="{$product.github_repo_url|escape}" target="_blank">{$product.github_repo_url|escape}</a></p>
+{if $can_sync}
 <form method="post" action="/products/sync/{$product.id}" style="margin-bottom:20px;">
     <input type="hidden" name="{$csrf}" value="{$hash}">
     <button type="submit" class="btn">Sync from GitHub Issues</button>
 </form>
+<p style="color:#666; font-size:0.9em;">Issues from the repository will appear as tasks below and in the task portal.</p>
+{/if}
 {/if}
 
 <h2>Tasks</h2>

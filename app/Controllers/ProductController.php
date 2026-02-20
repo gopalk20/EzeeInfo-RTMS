@@ -17,7 +17,9 @@ class ProductController extends BaseController
         $userId = (int) $session->get('user_id');
 
         $productModel = new ProductModel();
-        $products = $productModel->getProductsForUser($userId);
+        $user = (new UserModel())->find($userId);
+        $userTeamId = isset($user['team_id']) && $user['team_id'] !== '' ? (int) $user['team_id'] : null;
+        $products = $productModel->getProductsForUser($userId, $session->get('user_role'), $userTeamId);
 
         $smarty = new SmartyEngine();
         return $smarty->render('products/list.tpl', [
@@ -39,7 +41,9 @@ class ProductController extends BaseController
         if (!$product) {
             return redirect()->to('/products')->with('error', 'Product not found.');
         }
-        $userProducts = $productModel->getProductsForUser($userId);
+        $user = (new UserModel())->find($userId);
+        $userTeamId = isset($user['team_id']) && $user['team_id'] !== '' ? (int) $user['team_id'] : null;
+        $userProducts = $productModel->getProductsForUser($userId, $session->get('user_role'), $userTeamId);
         $canView = false;
         foreach ($userProducts as $p) {
             if ((int) $p['id'] === (int) $id) {
@@ -73,6 +77,7 @@ class ProductController extends BaseController
             'user_role'      => $session->get('user_role'),
             'is_super_admin' => $session->get('user_role') === 'Super Admin',
             'can_manage_tasks'=> in_array($session->get('user_role'), ['Manager', 'Super Admin'], true),
+            'can_sync'        => in_array($session->get('user_role'), ['Product Lead', 'Manager', 'Super Admin'], true),
             'success'        => $session->getFlashdata('success'),
             'error'          => $session->getFlashdata('error'),
             'csrf'           => csrf_token(),

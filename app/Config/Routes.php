@@ -18,7 +18,7 @@ $routes->post('profile/reset-password', 'AuthController::resetOwnPassword', ['fi
 
 // Admin routes
 $routes->group('admin', ['filter' => 'auth'], static function (RouteCollection $routes): void {
-    $routes->get('dashboard', 'AdminController::dashboard', ['filter' => 'require_manager']);
+    $routes->get('dashboard', 'AdminController::dashboardRedirect', ['filter' => 'require_manager']);
     $routes->get('users', 'AdminController::users', ['filter' => 'require_super_admin']);
     $routes->get('users/add', 'AdminController::addUser', ['filter' => 'require_super_admin']);
     $routes->post('users/add', 'AdminController::addUser', ['filter' => 'require_super_admin']);
@@ -29,6 +29,8 @@ $routes->group('admin', ['filter' => 'auth'], static function (RouteCollection $
     $routes->post('users/(:num)/toggle-active', 'AdminController::toggleActive/$1', ['filter' => 'require_super_admin']);
     $routes->get('products/manage', 'AdminController::productsManage', ['filter' => 'require_super_admin']);
     $routes->get('products/add', 'AdminController::productAdd', ['filter' => 'require_super_admin']);
+    $routes->get('products/add-from-github', 'AdminController::productAddFromGitHub', ['filter' => 'require_super_admin']);
+    $routes->post('products/add-from-github', 'AdminController::productAddFromGitHub', ['filter' => 'require_super_admin']);
     $routes->post('products/add', 'AdminController::productAdd', ['filter' => 'require_super_admin']);
     $routes->get('products/edit/(:num)', 'AdminController::productEdit/$1', ['filter' => 'require_super_admin']);
     $routes->post('products/edit/(:num)', 'AdminController::productEdit/$1', ['filter' => 'require_super_admin']);
@@ -36,6 +38,8 @@ $routes->group('admin', ['filter' => 'auth'], static function (RouteCollection $
     $routes->post('products/(:num)/toggle-disabled', 'AdminController::productToggleDisabled/$1', ['filter' => 'require_super_admin']);
     $routes->post('products/(:num)/members/add', 'AdminController::productMemberAdd/$1', ['filter' => 'require_super_admin']);
     $routes->post('products/(:num)/members/remove/(:num)', 'AdminController::productMemberRemove/$1/$2', ['filter' => 'require_super_admin']);
+    $routes->get('settings/email', 'AdminController::emailSettings', ['filter' => 'require_super_admin']);
+    $routes->post('settings/email', 'AdminController::emailSettings', ['filter' => 'require_super_admin']);
 });
 
 // Home (authenticated only - dashboard after login)

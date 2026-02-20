@@ -2,10 +2,12 @@
 
 namespace App\Controllers;
 
+use App\Libraries\EmailService;
 use App\Libraries\SmartyEngine;
 use App\Models\ApprovalModel;
 use App\Models\TaskModel;
 use App\Models\TimeEntryModel;
+use App\Models\UserModel;
 
 class ApprovalController extends BaseController
 {
@@ -95,6 +97,19 @@ class ApprovalController extends BaseController
             return redirect()->to('/approval')->with('error', 'You cannot approve this time entry.');
         }
         $timeEntryModel->approveEntry($entryId, $userId);
+        $employee = (new UserModel())->find($entry['user_id']);
+        $task = (new TaskModel())->find($entry['task_id']);
+        $taskTitle = $task['title'] ?? 'Timesheet';
+        $emailService = new EmailService();
+        if ($emailService->isConfigured() && $employee && !empty($employee['email'])) {
+            $emailService->sendApprovalEmail(
+                $employee['email'],
+                trim(($employee['first_name'] ?? '') . ' ' . ($employee['last_name'] ?? '')),
+                $taskTitle,
+                $entry['work_date'] ?? '',
+                (float) ($entry['hours'] ?? 0)
+            );
+        }
         return redirect()->to('/approval')->with('success', 'Time entry approved.');
     }
 
@@ -116,6 +131,21 @@ class ApprovalController extends BaseController
             return redirect()->to('/approval')->with('error', 'You cannot reject this time entry.');
         }
         $timeEntryModel->rejectEntry($entryId, $userId);
+        $employee = (new UserModel())->find($entry['user_id']);
+        $task = (new TaskModel())->find($entry['task_id']);
+        $taskTitle = $task['title'] ?? 'Timesheet';
+        $feedback = trim((string) $this->request->getPost('feedback'));
+        $emailService = new EmailService();
+        if ($emailService->isConfigured() && $employee && !empty($employee['email'])) {
+            $emailService->sendRejectionEmail(
+                $employee['email'],
+                trim(($employee['first_name'] ?? '') . ' ' . ($employee['last_name'] ?? '')),
+                $taskTitle,
+                $entry['work_date'] ?? '',
+                (float) ($entry['hours'] ?? 0),
+                $feedback ?: null
+            );
+        }
         return redirect()->to('/approval')->with('success', 'Time entry rejected.');
     }
 

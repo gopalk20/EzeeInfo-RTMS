@@ -106,7 +106,7 @@
 
 ## 1.6 User Profile & Auth (All Roles)
 
-- **User Profile**: Each user has a profile view showing Name, email, current role, team name, reporting manager. Accessible to the logged-in user.
+- **User Profile**: Each user has a profile view showing Name, email, employee ID, current role, team name, reporting manager. **Profile is editable** by the logged-in user for: first name, last name, email, employee ID.
 - **Logout**: All users can log out from the application.
 - **Password Reset (self)**: Any user can reset their own password (requires current password verification or forgot-password flow).
 - **Password Reset (Super Admin)**: Super Admin can reset any other user's password without knowing the current password.
@@ -115,13 +115,12 @@
 
 ## 2. Product-Level Workflows
 
-### 2.1 Product Creation Flow
+### 2.1 Product Creation Flow (from GitHub)
 
-1. Manager / Product Lead → Create Product
-2. Add Members to Product
-3. Define Timeline (Start & End Date)
-4. Set Maximum Allowed Time
-5. Link GitHub Repository
+1. **Super Admin** → Adds GitHub repository details (owner/repo URL); product is pulled from GitHub and displayed
+2. Products are sourced from GitHub repositories; Super Admin can add any GitHub repository to display as a product
+3. Under each repository, **GitHub Issues** are synced and displayed as tasks in the task portal
+4. **Super Admin** → Maps GitHub repository (product) to a team; only members of that team can bill timesheet for that product
 
 ### 2.2 Task Lifecycle Flow
 
@@ -247,7 +246,8 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-000a**: System MUST provide logout functionality for all authenticated users.
 - **FR-000a1**: System MUST keep session valid for 24 hours of idle time; user activity refreshes session; after 24h idle, user is logged out. Configurable via config (session expiration seconds; default 86400).
 - **FR-000a2**: System SHOULD NOT expose internal routes or page paths in the browser address bar; only domain (or base URL) displayed where feasible (e.g., History API replaceState, hash routing).
-- **FR-000b**: System MUST provide a user profile page showing Name, email, current role, team name for the logged-in user.
+- **FR-000b**: System MUST provide a user profile page showing first name, last name, email, employee ID, current role, team name, reporting manager for the logged-in user.
+- **FR-000b1**: System MUST allow the logged-in user to edit their own profile fields: first name, last name, email, employee ID.
 - **FR-000c**: System MUST allow any user to reset their own password (self-service).
 - **FR-000d**: System MUST allow Super Admin to reset any user's password.
 - **FR-000e**: System MUST allow Super Admin to add new users with: username, email, first name, last name, current role (selection), team name (selection), phone number.
@@ -264,13 +264,16 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 - **FR-005a**: System MUST allow Super Admin to add, edit, delete, rename products; disable/enable products (is_disabled); delete blocked if users or tasks mapped; show success/error messages; disabled products excluded from main product list
 - **FR-005b**: System MUST allow Super Admin to grant/revoke product access to manager or product lead via product_members UI
-- **FR-006**: System MUST allow Product Lead/Manager to create products with name, timeline (start/end date), and maximum allowed time
+- **FR-005d**: System MUST allow Super Admin to add any GitHub repository (owner/repo) so that it is displayed as a product; products are pulled from GitHub repositories
+- **FR-005e**: System MUST allow Super Admin to map a GitHub repository (product) to a team; only members of that team can bill timesheet for that product
+- **FR-006**: System MUST allow Product Lead/Manager to create products with name, timeline (start/end date), and maximum allowed time (or inherit from GitHub sync)
 - **FR-007**: System MUST allow Product Lead/Manager to add or remove members to/from a product
 - **FR-008**: System MUST allow Product Lead/Manager to link a GitHub repository to a product
 
 ### Tasks & Assignment
 
 - **FR-008a**: System MUST allow Manager and Super Admin to create, delete, modify tasks; delete blocked if time entries mapped; show success/error messages
+- **FR-008b**: System MUST sync GitHub Issues from a linked repository and display them as tasks in the task portal; each repository's issues appear as tasks under that product
 - **FR-009**: System MUST allow Product Lead/Manager to create tasks and milestones
 - **FR-010**: System MUST allow Product Lead/Manager to assign tasks to product members
 - **FR-011**: System MUST allow Employee to link a GitHub branch to an assigned task; system lists branches from GitHub API; Employee selects one; one branch per task (no reuse across tasks)
@@ -281,6 +284,7 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ### Time & Rework
 
+- **FR-015a**: System MUST provide a timesheet entry flow with option to select **Product** or **Task** first; based on selection, display the relevant list (products or tasks under a product); user selects from the list and submits the timesheet entry
 - **FR-016**: System MUST allow Employee to log time taken to complete a task
 - **FR-017**: System MUST enforce D+N policy for timesheet editability (BR-2)
 - **FR-018**: System MUST enforce configurable daily hours limit (BR-1)
@@ -314,7 +318,8 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ### Email & Reminders
 
-- **FR-035**: System MUST support configurable email (SMTP or equivalent); Super Admin configures email settings (e.g., host, port, credentials) for sending reminder emails.
+- **FR-035**: System MUST support configurable email (SMTP or equivalent); Super Admin configures email settings (e.g., Gmail SMTP host, port, credentials) for sending reminder emails and approval/rejection notifications.
+- **FR-035a**: System MUST support Gmail SMTP configuration for approval and rejection emails; Super Admin configures Gmail account SMTP details so that approval and rejection emails are validated and sent.
 - **FR-036**: System MUST send reminder email to employees who missed entering timesheet: (a) for last 1 week—weekly check validates Mon–Fri; "missed" = any work day has fewer than 8 hours logged; (b) for month end—monthly check runs on last day of month. Each employee receives one email per missed period.
 - **FR-037**: System MUST send reminder email to approvers (Manager, Product Lead) every week or month to approve pending timesheets; consolidated (one email per approver listing all pending). Frequency configurable (weekly/monthly).
 - **FR-038**: Super Admin MUST be able to modify email subject and content for: (a) employee timesheet reminder (weekly), (b) employee timesheet reminder (monthly), (c) approver reminder (weekly), (d) approver reminder (monthly). Templates stored in config or email_templates table; placeholders (e.g., {employee_name}, {period}, {approval_count}) supported.
@@ -329,9 +334,9 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ## 5. Key Entities
 
-- **User**: username, email, first_name, last_name, phone, password (hashed), role_id, team_id, reporting_manager_id, is_active. **resource_costs**: user_id, monthly_cost (salary) defined by Super Admin; per-day cost = monthly_cost / days_in_month. **Email templates**: config or email_templates table; subject and body for employee_timesheet_reminder_weekly, employee_timesheet_reminder_monthly, approver_reminder_weekly, approver_reminder_monthly.
+- **User**: username, email, first_name, last_name, employee_id, phone, password (hashed), role_id, team_id, reporting_manager_id, is_active. Profile editable (first name, last name, email, employee_id) by logged-in user. **resource_costs**: user_id, monthly_cost (salary) defined by Super Admin; per-day cost = monthly_cost / days_in_month. **Email templates**: config or email_templates table; subject and body for employee_timesheet_reminder_weekly, employee_timesheet_reminder_monthly, approver_reminder_weekly, approver_reminder_monthly.
 - **Team**: id, name (team name for grouping users)
-- **Product**: Represents a deliverable or project; has name, timeline, max allowed time, GitHub repo link, members, is_disabled, product_type (null=normal, 'leave'=leave); disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) have assignee_id=null tasks, available to all users for time logging
+- **Product**: Represents a deliverable or project; sourced from GitHub repository; Super Admin adds repo details; has name, timeline, max allowed time, GitHub repo link, team_id (mapped team; only team members can bill), members, is_disabled, product_type (null=normal, 'leave'=leave); disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) have assignee_id=null tasks, available to all users for time logging
 - **Task**: Represents work unit; has status (To Do/In Progress/Completed), assignment, linked branch, time log, rework log
 - **Milestone**: Time-bounded deliverable; can group tasks; has release status
 - **Member**: User assigned to a product; role within product context
@@ -398,4 +403,12 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-030**: Main layout: dark purple header (logo, hamburger, notification bell, user dropdown); left sidebar (MAIN NAVIGATION); content area; footer with copyright
 - **FR-031**: Dashboard: cards for Timesheet, Task, Pending Approval (with count for Manager/Lead)
 
-**Version**: 1.9.1 | **Created**: 2026-02-19 | **Constitution**: v1.9.1 | **Updated**: 2026-02-20 (User cost in Manage Users; Costing: user vs project; Security; AdminController getMethod fix)
+---
+
+## 8. Dashboard (Unified)
+
+- **FR-040**: System MUST provide a single dashboard; dashboard content MUST change based on user role (Employee, Product Lead, Manager, Finance, Super Admin). Super Admin MUST NOT have a separate Admin Dashboard—one unified dashboard shows role-appropriate widgets (e.g., Super Admin sees admin metrics; Manager sees reports; Employee sees assigned tasks).
+
+---
+
+**Version**: 1.9.2 | **Created**: 2026-02-19 | **Constitution**: v1.9.1 | **Updated**: 2026-02-20 (Editable profile; Product from GitHub; Issues as tasks; Product-to-team mapping; Timesheet Product/Task flow; Gmail SMTP; Unified dashboard)

@@ -3,8 +3,8 @@
 <h1>My Tasks</h1>
 
 {if empty($tasks)}
-    <p>No tasks assigned. Tasks are assigned by your Product Lead or Manager.</p>
-    <p><a href="/timesheet" class="btn">Log Time</a></p>
+    <p>No tasks yet. Sync from GitHub (Products → your product → Sync from GitHub Issues) or ask your Product Lead to add tasks.</p>
+    <p><a href="/products" class="btn">View Products</a> <a href="/timesheet" class="btn btn-secondary">Log Time</a></p>
 {else}
     <table class="data-table" style="width:100%; border-collapse: collapse; margin-top: 20px;">
         <thead>

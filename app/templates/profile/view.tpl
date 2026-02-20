@@ -10,7 +10,7 @@
 
     <div class="profile-card">
         <table class="profile-table">
-            <tr><th>Employee ID</th><td>{$user.username|default:'—'|escape}</td></tr>
+            <tr><th>Employee ID</th><td>{if !empty($user.employee_id)}{$user.employee_id|escape}{elseif !empty($user.username)}{$user.username|escape}{else}—{/if}</td></tr>
             <tr><th>Name</th><td>{$display_name|escape}</td></tr>
             <tr><th>Email</th><td>{$user.email|escape}</td></tr>
             <tr><th>Current Role</th><td>{$role_name|escape}</td></tr>

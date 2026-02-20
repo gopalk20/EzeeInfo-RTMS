@@ -1,6 +1,6 @@
 # Pre-Implementation Checklist: RTMS Baseline
 
-**Purpose**: Validate requirements completeness, constitution alignment, and implementation readiness before Phase 0; re-run before Phases 11–12  
+**Purpose**: Validate requirements completeness, constitution alignment, and implementation readiness before Phase 0; re-run before Phases 11–13  
 **Created**: 2026-02-19  
 **Feature**: [.specify/memory/spec.md](.specify/memory/spec.md) | **Plan**: [.specify/memory/plan.md](.specify/memory/plan.md) | **Constitution**: v1.9.1
 
@@ -42,7 +42,7 @@
 - [ ] CHK020 PHP 8.4, CodeIgniter 4, MySQL 8.x verified
 - [ ] CHK021 Extensions: pdo_mysql, curl, json, mbstring available
 - [ ] CHK022 Existing users table can be extended with role_id
-- [ ] CHK023 roles table migration designed (Employee, Product Lead, Manager, Finance)
+- [ ] CHK023 roles table migration designed (Employee, Product Lead, Manager, Finance, Super Admin)
 - [ ] CHK024 config table migration designed (daily_hours_limit, D, N, working_days, standard_hours)
 - [ ] CHK025 RoleFilter design documented; route-role mapping defined
 - [ ] CHK026 Auth: session-based, CSRF, bcrypt/argon2 (existing or to implement)
@@ -126,6 +126,20 @@
 
 ---
 
+## 11. Phase 13 (v1.9.2) Prerequisites
+
+*Aligned with clarify Q13.1–Q13.12.*
+
+- [ ] CHK068 Editable user profile: first name, last name, email, employee_id; logged-in user only; immediate update with uniqueness check; no email verification (FR-000b1, Q13.1)
+- [ ] CHK069 Dual product flow: (a) Super Admin adds GitHub repo → product from repo (name/timeline from GitHub); (b) Product Lead/Manager create manual products. Leave products always manual (FR-005d, FR-006, Q13.2–Q13.4)
+- [ ] CHK070 Issues as tasks: sync GitHub Issues; display under product in task portal (FR-008b)
+- [ ] CHK071 Product–team mapping: Super Admin maps product to team; only team members can bill. No team mapped = no one bills; leave products exempt (FR-005e, Q13.5–Q13.6)
+- [ ] CHK072 Timesheet flow: Product first → list products → pick → show tasks → pick task → log; Task first → list tasks (filtered by team mapping) → pick task → log (FR-015a, Q13.7–Q13.8)
+- [ ] CHK073 SMTP (any provider): format validation + optional "Test connection" button; send approval/rejection emails (FR-035a, Q13.9–Q13.10)
+- [ ] CHK074 Unified dashboard: single route; role-based redirect (Employee→tasks, Manager→admin); merged view per role (FR-040, Q13.11–Q13.12)
+
+---
+
 ## Notes
 
 - Mark items complete with `[x]`
@@ -190,6 +204,14 @@
 | Approver reminder: consolidated; weekly or monthly to approve pending timesheets | TODO |
 | Email templates: Super Admin configures subject and content; placeholders | TODO |
 | CLI remind:timesheet + cron for automatic weekly/monthly | TODO |
+| Editable user profile (first name, last name, email, employee_id; no verification) | TODO |
+| Dual product flow (GitHub + manual); leave products manual only | TODO |
+| Products: name/timeline from GitHub where applicable | TODO |
+| GitHub Issues as tasks under each product | TODO |
+| Product–team mapping (no team = no billing; leave exempt) | TODO |
+| Timesheet flow: Product or Task first; Product→products→tasks→log; Task→tasks→log | TODO |
+| SMTP (any provider): format + Test connection; approval/rejection emails | TODO |
+| Unified dashboard: role-based redirect; merged view per role | TODO |
 
 ---
 
@@ -207,7 +229,8 @@
 | 8. User Story Acceptance | 5 | US1–US5 |
 | 9. Success Criteria | 6 | SC-001 to SC-006 |
 | 10. Phase 11–12 Prerequisites | 10 | Session, URL, cost, security, email reminders |
+| 11. Phase 13 Prerequisites | 7 | Profile edit, dual product flow, issues as tasks, product–team mapping, timesheet Product/Task flow, SMTP, unified dashboard |
 
 ---
 
-**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 11 progress; costing in Manage Users)
+**Version**: 1.9.2 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 13 checklist aligned with Q13.1–Q13.12)

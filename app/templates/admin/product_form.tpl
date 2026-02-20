@@ -5,6 +5,9 @@
 {if $success}
     <div class="alert alert-success">{$success|escape}</div>
 {/if}
+{if $product && (!$product.team_id || $product.team_id == '')}
+    <div class="alert" style="background:#fef3c7; color:#92400e;">Set the Team below so team members can log time for this product on their timesheet.</div>
+{/if}
 {if $error}
     <div class="alert alert-error">{$error|escape}</div>
 {/if}
@@ -16,6 +19,11 @@
         <input type="text" name="name" id="name" value="{if $product}{$product.name|escape}{/if}" required maxlength="255">
     </div>
     <div class="form-group">
+        <label for="github_repo_url">GitHub Repository URL</label>
+        <input type="url" name="github_repo_url" id="github_repo_url" value="{if $product && isset($product.github_repo_url)}{$product.github_repo_url|escape}{/if}" placeholder="https://github.com/owner/repo" maxlength="512" style="width:100%; padding: 8px 12px;">
+        <p style="color:#666; font-size:0.9em; margin-top:4px;">Paste the repository URL to sync Issues as tasks. Example: https://github.com/owner/repo</p>
+    </div>
+    <div class="form-group">
         <label for="product_lead_id">Product Lead</label>
         <select name="product_lead_id" id="product_lead_id">
             <option value="">— None —</option>
@@ -25,6 +33,16 @@
             </option>
             {/foreach}
         </select>
+    </div>
+    <div class="form-group">
+        <label for="team_id">Team (for billing)</label>
+        <select name="team_id" id="team_id">
+            <option value="">— Not mapped —</option>
+            {foreach $teams as $t}
+            <option value="{$t.id}" {if $product && isset($product.team_id) && $product.team_id == $t.id}selected{/if}>{$t.name|escape}</option>
+            {/foreach}
+        </select>
+        <p style="color:#666; font-size:0.9em; margin-top:4px;">Only team members can bill timesheet for this product. <strong>Products without a team will not appear on the timesheet.</strong> Leave products are exempt.</p>
     </div>
     <p><button type="submit" class="btn">Save</button> <a href="/admin/products/manage" class="btn btn-secondary">Cancel</a></p>
 </form>

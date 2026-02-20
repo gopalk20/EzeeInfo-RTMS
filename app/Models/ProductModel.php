@@ -11,7 +11,7 @@ class ProductModel extends Model
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
     protected $useTimestamps   = true;
-    protected $allowedFields   = ['name', 'start_date', 'end_date', 'max_allowed_hours', 'github_repo_url', 'product_lead_id', 'is_disabled', 'product_type'];
+    protected $allowedFields   = ['name', 'start_date', 'end_date', 'max_allowed_hours', 'github_repo_url', 'product_lead_id', 'team_id', 'is_disabled', 'product_type'];
 
     public function getMembers(int $productId): array
     {
@@ -51,8 +51,32 @@ class ProductModel extends Model
         return $row !== null;
     }
 
-    public function getProductsForUser(int $userId): array
+    /**
+     * Products the user can bill timesheet for (FR-005e, Q13.5–Q13.6).
+     * Leave: always. Non-leave: product.team_id = userTeamId (userTeamId null = only leave).
+     */
+    public function getBillableForUser(?int $userTeamId): array
     {
+        $builder = $this->db->table('products');
+        $builder->groupStart()->where('product_type', 'leave');
+        if ($userTeamId !== null) {
+            $builder->orGroupStart()->where('team_id IS NOT NULL')->where('team_id', $userTeamId)->groupEnd();
+        }
+        $builder->groupEnd();
+        $builder->groupStart()->where('is_disabled', null)->orWhere('is_disabled', 0)->groupEnd();
+        return $builder->orderBy('product_type', 'ASC')->orderBy('name')->get()->getResultArray();
+    }
+
+    /**
+     * Products the user can view (Products list, product view, task portal).
+     * Super Admin: all. Others: product_members, product_lead, or team_id match.
+     */
+    public function getProductsForUser(int $userId, ?string $userRole = null, ?int $userTeamId = null): array
+    {
+        if ($userRole === 'Super Admin') {
+            return $this->groupStart()->where('is_disabled', null)->orWhere('is_disabled', 0)->groupEnd()->orderBy('name')->findAll();
+        }
+
         $asMember = $this->db->table('product_members')
             ->select('product_id')
             ->where('user_id', $userId)
@@ -64,9 +88,16 @@ class ProductModel extends Model
         $leadIds = array_column($asLead, 'id');
 
         $allIds = array_unique(array_merge($memberIds, $leadIds));
+
+        if ($userTeamId !== null) {
+            $asTeam = $this->where('team_id', $userTeamId)->groupStart()->where('is_disabled', null)->orWhere('is_disabled', 0)->groupEnd()->findAll();
+            $teamIds = array_column($asTeam, 'id');
+            $allIds = array_unique(array_merge($allIds, $teamIds));
+        }
+
         if (empty($allIds)) {
             return [];
         }
-        return $this->whereIn('id', $allIds)->groupStart()->where('is_disabled', null)->orWhere('is_disabled', 0)->groupEnd()->findAll();
+        return $this->whereIn('id', $allIds)->groupStart()->where('is_disabled', null)->orWhere('is_disabled', 0)->groupEnd()->orderBy('name')->findAll();
     }
 }

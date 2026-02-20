@@ -222,9 +222,10 @@
 | Phase 7 (Polish) | Phases 2–6 | Phase 8 |
 | Phase 8 (Workflow) | Phases 1–7 | Phase 9 |
 | Phase 9 (Approval) | Phase 8 | Phase 10 |
-| Phase 10 (Leave, Dashboard) | Phase 9 | Phases 11, 12 |
+| Phase 10 (Leave, Dashboard) | Phase 9 | Phases 11, 12, 13 |
 | Phase 11 (Security, Cost) | Phase 10 | Phase 12 |
-| Phase 12 (Email) | Phase 11 | — |
+| Phase 12 (Email) | Phase 11 | Phase 13 |
+| Phase 13 (v1.9.2) | Phase 12 | — |
 
 ### Recommended Order
 
@@ -240,6 +241,7 @@
 10. **Phase 10** — leave products, Admin Dashboard, department filter
 11. **Phase 11** — cloud security, 24h session, URL domain-only, user cost
 12. **Phase 12** — email config, reminders (employee + approver), templates, CLI + cron
+13. **Phase 13** — editable profile, GitHub products, issues as tasks, product–team mapping, timesheet Product/Task flow, Gmail SMTP, unified dashboard
 
 ### Parallel Opportunities
 
@@ -349,6 +351,18 @@
 - [ ] T124 [Email] Super Admin UI: manage email templates (subject, content); placeholders: employee_name, period, missing_days, approval_count, pending_list, login_url, approval_url (FR-038, Q10.6)
 - [ ] T125 [Cron/CLI] CLI command (e.g., `php spark remind:timesheet`); cron triggers weekly (e.g., Monday AM) and monthly (last day); automatic (FR-035–037, Q10.5)
 
+### Phase 13: Profile Edit, GitHub Products, Product–Team Mapping, Timesheet Flow, SMTP, Unified Dashboard (v1.9.2)
+
+*Clarified per Q13.1–Q13.12.*
+
+- [x] T130 [Profile] Editable user profile: first name, last name, email, employee_id; logged-in user only; immediate update with uniqueness check; no email verification (Q13.1, FR-000b1)
+- [ ] T131 [Product] Dual product flow: (a) Super Admin adds GitHub repo → product from repo (name/timeline from GitHub); (b) Product Lead/Manager create manual products. Leave products always manual (Q13.2–Q13.4, FR-005d, FR-006)
+- [ ] T132 [Task] Issues as tasks: sync GitHub Issues; display under each product in task portal (FR-008b)
+- [x] T133 [Product] Product–team mapping: migration products.team_id; Super Admin maps product to team; only team members can bill; no team mapped = no one bills; leave products exempt (Q13.5–Q13.6, FR-005e)
+- [x] T134 [Timesheet] Product or Task first: Product→list products→pick product→show tasks→pick task→log; Task→list tasks (filtered by team mapping)→pick task→log (Q13.7–Q13.8, FR-015a)
+- [ ] T135 [Email] SMTP (any provider; Gmail for testing): format validation + "Test connection" button; send approval/rejection emails (Q13.9–Q13.10, FR-035a)
+- [x] T136 [Dashboard] Unified: single route; role-based redirect (Employee→tasks, Manager→admin); merged view per role (Q13.11–Q13.12, FR-040)
+
 ---
 
 ## Task Summary by Phase
@@ -367,7 +381,8 @@
 | 10 | T100–T109 | ✓ Complete |
 | 11 | T110–T116 | Partial (T114 URL masking TODO) |
 | 12 | T120–T125 | TODO |
+| 13 | T130–T136 | TODO |
 
 ---
 
-**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (T115 user cost in Manage Users; Costing redesign)
+**Version**: 1.9.2 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 13 refined per plan/clarify Q13.1–Q13.12)

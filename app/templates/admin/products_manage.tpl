@@ -31,6 +31,7 @@
 
 <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
     <a href="/admin/products/add" class="btn">+ Add Product</a>
+    <a href="/admin/products/add-from-github" class="btn" style="background:#24292f;">+ Add from GitHub</a>
     <a href="/admin/users" class="btn btn-secondary">Manage Users</a>
     <form method="get" action="/admin/products/manage" class="admin-search-row">
         <label for="q">Search:</label>
@@ -45,6 +46,7 @@
         <tr>
             <th><a href="?q={$search|escape:url}&sort=id&dir={if $sort=='id' && $dir=='asc'}desc{else}asc{/if}"># ↕</a></th>
             <th><a href="?q={$search|escape:url}&sort=name&dir={if $sort=='name' && $dir=='asc'}desc{else}asc{/if}">Name ↕</a></th>
+            <th>GitHub Repo</th>
             <th>Account Manager</th>
             <th>Start Date</th>
             <th>End Date</th>
@@ -58,6 +60,7 @@
         <tr class="{if $p.is_disabled}row-disabled{/if}">
             <td><span class="admin-id">{$p.id|escape}</span></td>
             <td><a href="/products/view/{$p.id}" style="color:inherit; text-decoration:none;">{$p.name|escape}</a></td>
+            <td>{if $p.github_repo_url}<a href="{$p.github_repo_url|escape}" target="_blank" rel="noopener" title="{$p.github_repo_url|escape}">🔗</a>{else}—{/if}</td>
             <td>{$p.lead_name|escape}</td>
             <td>{$p.start_date|default:'—'|escape}</td>
             <td>{$p.end_date|default:'—'|escape}</td>
@@ -75,7 +78,7 @@
             </td>
         </tr>
         {foreachelse}
-        <tr><td colspan="8" style="padding: 24px; color: #64748b;">No products found.</td></tr>
+        <tr><td colspan="9" style="padding: 24px; color: #64748b;">No products found.</td></tr>
         {/foreach}
     </tbody>
 </table>

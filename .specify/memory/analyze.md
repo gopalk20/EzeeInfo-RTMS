@@ -1,20 +1,21 @@
 # Analysis Report: RTMS Implementation
 
-**Date**: 2026-02-19  
-**Scope**: Tasks actionability, missing deliverables, edge cases, backward compatibility, Phase 11–12 readiness  
+**Date**: 2026-02-20  
+**Scope**: Spec–code alignment, Phase 11–12–13 readiness, gaps, recommendations  
 **Input**: tasks.md, spec.md, plan.md, constitution.md, clarify.md, checklist.md, existing codebase  
-**Versions**: Spec v1.9.1 | Plan v1.9.1 | Constitution v1.9.1
+**Versions**: Spec v1.9.2 | Plan v1.9.2 | Constitution v1.9.1
 
 ---
 
-## Executive Summary (Iteration 2)
+## Executive Summary (Iteration 3)
 
 | Category | Status | Action |
 |----------|--------|--------|
-| Iteration 1 recommendations | Partially addressed | Auth ✓; T057a schema ✓; T053a, T057, Costing RBAC, Session, tests still TODO |
-| Phase 11–12 readiness | Gaps identified | Session 2h vs 24h; Costing allows Manager edit (spec: Super Admin only); no Webhooks, audit, URL masking |
-| Spec–code alignment | Minor drift | FR-005c: CostingController allows Manager to edit; restrict to Super Admin |
-| Critical path | Webhooks, T053a, T057, T065 | Blocking for full spec compliance |
+| Phase 11 (Security, Cost) | ✓ Mostly complete | T114 (URL masking) pending; Costing RBAC ✓ (no save route) |
+| Phase 12 (Email) | Not started | T120–T125: SMTP config, templates, CLI, reminders |
+| Phase 13 (v1.9.2) | Partial | T130, T133, T134, T136 done; T131, T132, T135 pending |
+| Spec–code alignment | Minor drift | Profile view-only (no edit); no products.team_id; timesheet Task-only (no Product/Task option) |
+| Critical path | Phase 12 email; Phase 13 T130–T136 | Foundation for approval emails; core Phase 13 features |
 
 ---
 
@@ -200,21 +201,22 @@ All new routes are **additive** — no existing routes modified or removed:
 
 ---
 
-## 7. Implementation Status (2026-02-19)
+## 7. Implementation Status (2026-02-20)
 
 **Implemented**:
-- Auth, login, logout, profile, password reset; is_active blocks disabled users
-- Timesheet: status (pending_approval, approved); success message; edit before approval; daily/weekly/monthly view
+- Auth, login, logout, profile (view-only), password reset; is_active blocks disabled users
+- Timesheet: status (pending_approval, approved); success message; edit before approval; daily/weekly/monthly view; task dropdown for log
 - Reporting: users.reporting_manager_id; time entries routed to Manager/Product Lead; profile shows reporting manager
-- Approval: Product Lead + Manager + Super Admin; task completion + timesheet approvals
-- Team timesheet: /timesheet/team; consolidated view for Lead/Manager reports
-- Products: list, view, sync; Super Admin CRUD (add/edit/delete); grant/revoke product_members
-- Tasks: list; Manager/Super Admin add/edit/delete on product view; delete blocks if time entries mapped
-- User management: Super Admin add user, reset password, enable/disable, modify reporting manager
-- Vertex UI: login page, layout (header, sidebar), dashboard cards
-- Costing, Milestones, Reports: as before
+- Approval: Product Lead + Manager + Super Admin; task completion + timesheet approvals (no email on approve/reject)
+- Team timesheet: /timesheet/team; consolidated view; per-day cost for Manager
+- Products: list, view, syncFromGitHub; Super Admin CRUD; grant/revoke product_members; product_type (leave)
+- Tasks: list; Manager/Super Admin add/edit/delete; delete blocks if time entries mapped
+- User management: Super Admin add user, reset password, enable/disable, modify reporting manager, monthly cost (Manage Users > Edit)
+- Vertex UI: login page, layout (header, sidebar), dashboard cards; home.tpl; admin/dashboard.tpl
+- Costing: display only (user + project); no save route
+- Cloud security: CSRF, SecureHeaders, rate limit, SECURITY.md; session 24h
 
-**TODO**: T053a (requestRework), T057 (reassign on removeMember), Webhooks, PDF/Excel export, D+N edit UI
+**Implemented (Phase 13)**: T130 profile edit, T133 product–team mapping, T134 timesheet Product/Task flow, T136 unified dashboard. **TODO**: Phase 12 (email); T131 (Add from GitHub), T132 (Issues sync), T135 (SMTP approval emails); T053a, T057, T114, Webhooks, PDF/Excel
 
 ---
 
@@ -239,7 +241,7 @@ All new routes are **additive** — no existing routes modified or removed:
 
 | Item | Spec/FR | Current Code | Gap |
 |------|---------|--------------|-----|
-| **User cost edit** | FR-005c, Q11.3: Only Super Admin can edit | ✓ Done: AdminController::userEdit (Manage Users > Edit); costing page display only | — |
+| **User cost edit** | FR-005c, Q11.3: Only Super Admin can edit | ✓ Done: AdminController::userEdit (Manage Users > Edit); no costing/save route | — |
 | **Session expiration** | FR-000a1: 24h idle (86400s) | ✓ Done: Session.php 86400; config table session_expiration | — |
 | **Costing** | User vs project costing | ✓ Done: Costing page shows user costing + project costing; user cost in Manage Users | — |
 
@@ -253,7 +255,19 @@ All new routes are **additive** — no existing routes modified or removed:
 | 11 | T115–T116 | ✓ Done: User cost in Manage Users; per-day cost in Team Timesheet |
 | 12 | T120–T125 | No email config, templates, CLI remind command |
 
-### 9.3 T057 Implementation Detail
+### 9.3 Phase 13 Spec–Code Analysis (v1.9.2)
+
+| Task | Spec/Clarify | Current Code | Gap |
+|------|--------------|--------------|-----|
+| **T130 Profile edit** | FR-000b1, Q13.1 | ✓ Done: profile/edit, employee_id, uniqueness check |
+| **T131 Dual product flow** | Q13.2–Q13.4: GitHub + manual; leave manual; name/timeline from GitHub | Manual add exists (productAdd); syncFromGitHub exists; no dedicated "Add from GitHub" flow; leave products manual | Add "Add from GitHub" UI; ensure name/timeline pulled from repo |
+| **T132 Issues as tasks** | FR-008b: Issues synced under product | GitHubService; ProductController::syncFromGitHub | Verify sync creates tasks from Issues; display in task portal |
+| **T133 Product–team mapping** | Q13.5–Q13.6 | ✓ Done: products.team_id, getBillableForUser, product form, billability |
+| **T134 Timesheet flow** | Q13.7–Q13.8 | ✓ Done: By Task / By Product toggle; Product→products→tasks→log |
+| **T135 SMTP** | Q13.9–Q13.10: Any SMTP; format + Test connection; approval/rejection emails | No approval/rejection email on approve/reject; no SMTP config UI | Admin SMTP config; send email on ApprovalController approve/reject; format validation + Test button |
+| **T136 Unified dashboard** | Q13.11–Q13.12 | ✓ Done: Employee→/tasks on login; /home merged view; admin widgets for Manager/Super Admin |
+
+### 9.4 T057 Implementation Detail
 
 **Current**: `ProductModel::removeMember($productId, $userId)` deletes from `product_members` only.
 
@@ -293,30 +307,31 @@ All new routes are **additive** — no existing routes modified or removed:
 
 ## 11. Recommended Actions (Prioritized)
 
-### Before Phase 11
+### Phase 12 (Email) — Blocking for T135
 
-1. **Costing RBAC** (FR-005c): Restrict `costing/save` to Super Admin; hide edit form for Manager in costing/index.tpl
-2. **Session config** (T113 prep): Add `session_expiration` to config table; default 86400; read in Session config or custom handler
-3. **T057** (optional): Implement task reassignment in removeMember flow for spec compliance
+1. **T120**: SMTP config in .env; Admin UI for from/reply-to
+2. **T123–T124**: Email templates migration; Super Admin UI
+3. **T121–T122, T125**: Employee + approver reminders; CLI + cron
 
-### Phase 11 Start
+### Phase 13 (v1.9.2) — In Order
 
-4. **T110–T112**: HTTPS, secure cookies, rate limiting, security headers
-5. **T113**: Set session expiration to 86400; configurable
-6. **T114**: History API replaceState for URL masking
-7. **T115–T116**: Costing Super Admin–only edit; Manager per-day cost in Team Timesheet
-
-### Phase 12
-
-8. **T120–T125**: Email config, templates, CLI, cron
+4. **T130**: Migration `users.employee_id`; profile/edit route; edit form (first_name, last_name, email, employee_id); uniqueness check
+5. **T133**: Migration `products.team_id`; product form team dropdown; billability check (no team = no bill; leave exempt)
+6. **T131**: "Add from GitHub" flow; name/timeline from GitHub; leave manual only
+7. **T132**: Verify Issues sync; display in task portal
+8. **T134**: Timesheet: Product/Task toggle; Product→products→tasks→log; Task→tasks→log (filter by team)
+9. **T135**: SMTP format + Test connection; send approval/rejection emails
+10. **T136**: Unified dashboard; role-based redirect; merged view
 
 ### Lower Priority
 
-9. **T053a**: requestRework action (Product Lead/Manager can set status without full approval reject)
-10. **T065**: Migration rollback README
-11. **Rework % Total=0**: Add guard in reports
+11. **T114**: History API replaceState for URL masking
+12. **T053a**: requestRework action
+13. **T057**: Task reassignment on removeMember
+14. **T065**: Migration rollback README
+15. **Rework % Total=0**: Add guard in reports
 
 ---
 
-**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 11 partial complete; costing redesign; AdminController getMethod fix)  
-**Next**: T114 (URL masking); Phase 12 (email reminders)
+**Version**: 1.9.2 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Iteration 3: Phase 13 spec–code analysis)  
+**Next**: Phase 12 (T120–T125) then Phase 13 (T130–T136)

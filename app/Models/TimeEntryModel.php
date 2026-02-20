@@ -171,17 +171,32 @@ class TimeEntryModel extends Model
     {
         $end = date('Y-m-t');
         $start = date('Y-m-01', strtotime("-{$months} months"));
-        $rows = $this->db->query("
-            SELECT
-                DATE_FORMAT(te.work_date, '%Y-%m') as month,
-                COALESCE(products.product_type, 'billable') as type,
-                SUM(te.hours) as total
-            FROM time_entries te
-            JOIN tasks ON tasks.id = te.task_id
-            JOIN products ON products.id = tasks.product_id
-            WHERE te.work_date >= ? AND te.work_date <= ?
-            GROUP BY month, type
-        ", [$start, $end])->getResultArray();
+        $driver = $this->db->getPlatform();
+        if ($driver === 'SQLite3') {
+            $rows = $this->db->query("
+                SELECT
+                    strftime('%Y-%m', te.work_date) as month,
+                    COALESCE(products.product_type, 'billable') as type,
+                    SUM(te.hours) as total
+                FROM time_entries te
+                JOIN tasks ON tasks.id = te.task_id
+                JOIN products ON products.id = tasks.product_id
+                WHERE te.work_date >= ? AND te.work_date <= ?
+                GROUP BY strftime('%Y-%m', te.work_date), type
+            ", [$start, $end])->getResultArray();
+        } else {
+            $rows = $this->db->query("
+                SELECT
+                    DATE_FORMAT(te.work_date, '%Y-%m') as month,
+                    COALESCE(products.product_type, 'billable') as type,
+                    SUM(te.hours) as total
+                FROM time_entries te
+                JOIN tasks ON tasks.id = te.task_id
+                JOIN products ON products.id = tasks.product_id
+                WHERE te.work_date >= ? AND te.work_date <= ?
+                GROUP BY month, type
+            ", [$start, $end])->getResultArray();
+        }
         $byMonth = [];
         foreach ($rows as $r) {
             $m = $r['month'];
