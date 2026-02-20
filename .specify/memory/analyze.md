@@ -1,8 +1,20 @@
-# Analysis Report: RTMS Implementation — Iteration 1
+# Analysis Report: RTMS Implementation
 
 **Date**: 2026-02-19  
-**Scope**: Tasks actionability, missing deliverables, edge cases, backward compatibility  
-**Input**: tasks.md, spec.md, plan.md, constitution.md, existing codebase
+**Scope**: Tasks actionability, missing deliverables, edge cases, backward compatibility, Phase 11–12 readiness  
+**Input**: tasks.md, spec.md, plan.md, constitution.md, clarify.md, checklist.md, existing codebase  
+**Versions**: Spec v1.9.1 | Plan v1.9.1 | Constitution v1.9.1
+
+---
+
+## Executive Summary (Iteration 2)
+
+| Category | Status | Action |
+|----------|--------|--------|
+| Iteration 1 recommendations | Partially addressed | Auth ✓; T057a schema ✓; T053a, T057, Costing RBAC, Session, tests still TODO |
+| Phase 11–12 readiness | Gaps identified | Session 2h vs 24h; Costing allows Manager edit (spec: Super Admin only); no Webhooks, audit, URL masking |
+| Spec–code alignment | Minor drift | FR-005c: CostingController allows Manager to edit; restrict to Super Admin |
+| Critical path | Webhooks, T053a, T057, T065 | Blocking for full spec compliance |
 
 ---
 
@@ -202,9 +214,109 @@ All new routes are **additive** — no existing routes modified or removed:
 - Vertex UI: login page, layout (header, sidebar), dashboard cards
 - Costing, Milestones, Reports: as before
 
-**TODO**: T053a (requestRework), T057a (Product Lead resolution), Webhooks, PDF/Excel export, D+N edit UI
+**TODO**: T053a (requestRework), T057 (reassign on removeMember), Webhooks, PDF/Excel export, D+N edit UI
 
 ---
 
-**Version**: 1.5.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19  
-**Next**: Webhooks, PDF/Excel export, Forgot Password flow
+## 8. Iteration 2: Status of Iteration 1 Recommendations (2026-02-19)
+
+| Rec. | Status | Notes |
+|------|--------|------|
+| T009 split (Auth) | ✓ Done | T009a–T009c implemented; AuthController, AuthFilter, login.tpl |
+| T047 (Finance costing) | ✓ Done | ReportController: Finance sees time only; Manager sees costing |
+| Dashboard (T016a) | ✓ Done | Vertex UI dashboard cards; redirect by role |
+| T053a (requestRework) | ❌ Not done | No TaskController::requestRework; status set only on ApprovalController reject |
+| T057 (reassign on remove) | ❌ Not done | ProductModel::removeMember only deletes product_members; does not reassign tasks |
+| T057a (Product Lead resolution) | ✓ Schema done | `products.product_lead_id` exists and used; resolution rule: use product_lead_id |
+| T065 (Migration README) | ❌ Not done | No `app/Database/Migrations/README.md` |
+| Rework % when Total=0 | ⚠ Unknown | Check ReportController/TimeEntryModel for division-by-zero guard |
+
+---
+
+## 9. Iteration 2: New Gaps & Phase 11–12 Readiness
+
+### 9.1 Spec–Code Drift
+
+| Item | Spec/FR | Current Code | Gap |
+|------|---------|--------------|-----|
+| **User cost edit** | FR-005c, Q11.3: Only Super Admin can edit | ✓ Done: AdminController::userEdit (Manage Users > Edit); costing page display only | — |
+| **Session expiration** | FR-000a1: 24h idle (86400s) | ✓ Done: Session.php 86400; config table session_expiration | — |
+| **Costing** | User vs project costing | ✓ Done: Costing page shows user costing + project costing; user cost in Manage Users | — |
+
+### 9.2 Phase 11–12 Prerequisite Gaps
+
+| Phase | Task | Gap |
+|-------|------|-----|
+| 11 | T110–T112 | ✓ Done: CSRF, SecureHeaders, rate limit, SECURITY.md |
+| 11 | T113 | ✓ Done: Session 86400s |
+| 11 | T114 | No History API replaceState; URL exposes routes |
+| 11 | T115–T116 | ✓ Done: User cost in Manage Users; per-day cost in Team Timesheet |
+| 12 | T120–T125 | No email config, templates, CLI remind command |
+
+### 9.3 T057 Implementation Detail
+
+**Current**: `ProductModel::removeMember($productId, $userId)` deletes from `product_members` only.
+
+**Required** (Q6.3): Before delete, reassign tasks where `assignee_id = $userId` and `product_id = $productId` to Product Lead.
+
+**Resolution** (T057a): Use `products.product_lead_id`. If null, fallback: first product_member with `role_in_product = 'Product Lead'`, else block removal or use product creator.
+
+**Recommendation**: In `AdminController::productMemberRemove` (or ProductController), before calling `removeMember`:
+1. Get product `product_lead_id`
+2. If null, get first member with role_in_product = 'Product Lead'
+3. Reassign `tasks` where assignee_id=userId and product_id=productId to new assignee_id
+4. Then call removeMember
+
+### 9.4 Costing RBAC Fix (Pre–Phase 11)
+
+**Current**: `costing/save` route uses `require_manager`. Both Manager and Super Admin have manager access.
+
+**Required**: Only Super Admin can POST to save. Manager can view (index) but not edit.
+
+**Recommendation**:
+- Add route `costing/save` with `require_super_admin` OR
+- In `CostingController::save()`, check `$session->get('user_role') === 'Super Admin'` and redirect if not
+- Template: hide edit form for Manager; show only for Super Admin (use existing `is_super_admin`)
+
+---
+
+## 10. Edge Cases (Iteration 2 Additions)
+
+| Edge Case | Status | Action |
+|-----------|--------|--------|
+| Product with no product_lead_id | Schema allows null | T057: Define fallback (first Product Lead in product_members, or block removal) |
+| Leave product tasks (assignee_id=null) | Implemented | TimesheetController::log allows; TaskModel::getByAssignee includes leave |
+| Email reminder: employee with 0 work days in period | FR-036 | Clarify: Skip or send "no work days" message |
+| Approver with 0 pending | FR-037 | Skip sending email |
+
+---
+
+## 11. Recommended Actions (Prioritized)
+
+### Before Phase 11
+
+1. **Costing RBAC** (FR-005c): Restrict `costing/save` to Super Admin; hide edit form for Manager in costing/index.tpl
+2. **Session config** (T113 prep): Add `session_expiration` to config table; default 86400; read in Session config or custom handler
+3. **T057** (optional): Implement task reassignment in removeMember flow for spec compliance
+
+### Phase 11 Start
+
+4. **T110–T112**: HTTPS, secure cookies, rate limiting, security headers
+5. **T113**: Set session expiration to 86400; configurable
+6. **T114**: History API replaceState for URL masking
+7. **T115–T116**: Costing Super Admin–only edit; Manager per-day cost in Team Timesheet
+
+### Phase 12
+
+8. **T120–T125**: Email config, templates, CLI, cron
+
+### Lower Priority
+
+9. **T053a**: requestRework action (Product Lead/Manager can set status without full approval reject)
+10. **T065**: Migration rollback README
+11. **Rework % Total=0**: Add guard in reports
+
+---
+
+**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 11 partial complete; costing redesign; AdminController getMethod fix)  
+**Next**: T114 (URL masking); Phase 12 (email reminders)

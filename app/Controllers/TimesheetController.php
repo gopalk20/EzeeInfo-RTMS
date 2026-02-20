@@ -401,6 +401,10 @@ class TimesheetController extends BaseController
             $hoursAllocated = $allocatedHoursDefault;
             $pctUsed = $hoursAllocated > 0 ? min(100, ($hoursSpent / $hoursAllocated) * 100) : 0;
 
+            // Per-day cost = monthly_cost / days_in_month (FR-005c; Jan=31, Apr=30, Feb=28/29)
+            $daysInMonth = (int) date('t', strtotime($from));
+            $perDayCost = $daysInMonth > 0 ? round($monthlyCost / $daysInMonth, 2) : 0;
+
             $rows[] = [
                 'user_id'        => $uid,
                 'display_name'   => $displayName ?: $user['email'],
@@ -411,6 +415,7 @@ class TimesheetController extends BaseController
                 'allocation_pct' => '100%',
                 'billing_role'   => $roleName,
                 'billing_rate'   => $billingRate,
+                'per_day_cost'   => $perDayCost,
                 'hours_spent'    => $hoursSpent,
                 'hours_allocated'=> $hoursAllocated,
                 'pct_used'       => $pctUsed,
@@ -422,6 +427,8 @@ class TimesheetController extends BaseController
         $monthValue = substr($from, 0, 7);
 
         $smarty = new SmartyEngine();
+        $canSeeCost = in_array($userRole, ['Manager', 'Super Admin'], true);
+
         return $smarty->render('timesheet/team.tpl', [
             'title'           => 'Team Timesheet',
             'nav_active'      => 'team',
@@ -436,6 +443,7 @@ class TimesheetController extends BaseController
             'user_email'      => $session->get('user_email'),
             'user_role'       => $userRole,
             'is_super_admin'  => $userRole === 'Super Admin',
+            'can_see_cost'    => $canSeeCost,
         ]);
     }
 

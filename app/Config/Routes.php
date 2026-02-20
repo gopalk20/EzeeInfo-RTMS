@@ -8,8 +8,9 @@ use CodeIgniter\Router\RouteCollection;
 
 // Root: show login if not authenticated, otherwise redirect to home.
 // Both GET and POST handled by index() to avoid routing issues.
-$routes->match(['get', 'post'], '/', 'AuthController::index');
-$routes->get('login', 'AuthController::index'); // Redirect /login to same as /
+// Rate limit login attempts (FR-032)
+$routes->match(['get', 'post'], '/', 'AuthController::index', ['filter' => 'login_rate_limit']);
+$routes->get('login', 'AuthController::index', ['filter' => 'login_rate_limit']); // Redirect /login to same as /
 $routes->get('logout', 'AuthController::logout', ['filter' => 'auth']);
 $routes->get('profile', 'AuthController::profile', ['filter' => 'auth']);
 $routes->get('profile/reset-password', 'AuthController::resetOwnPassword', ['filter' => 'auth']);
@@ -68,9 +69,8 @@ $routes->post('approval/reject/(:num)', 'ApprovalController::reject/$1', ['filte
 $routes->post('approval/timesheet/approve/(:num)', 'ApprovalController::approveTimesheet/$1', ['filter' => ['auth', 'require_product_lead_or_manager']]);
 $routes->post('approval/timesheet/reject/(:num)', 'ApprovalController::rejectTimesheet/$1', ['filter' => ['auth', 'require_product_lead_or_manager']]);
 
-// Costing (Manager only)
+// Costing: User costing vs Project costing (display only; user cost configured in Manage Users > Edit)
 $routes->get('costing', 'CostingController::index', ['filter' => ['auth', 'require_manager']]);
-$routes->post('costing/save', 'CostingController::save', ['filter' => ['auth', 'require_manager']]);
 
 // Reports (Finance, Manager)
 $routes->get('reports', 'ReportController::index', ['filter' => ['auth', 'require_finance_or_manager']]);

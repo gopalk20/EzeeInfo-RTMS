@@ -34,13 +34,14 @@ class Session extends BaseConfig
 
     /**
      * --------------------------------------------------------------------------
-     * Session Expiration
+     * Session Expiration (FR-000a1)
      * --------------------------------------------------------------------------
      *
-     * The number of SECONDS you want the session to last.
-     * Setting to 0 (zero) means expire when the browser is closed.
+     * The number of SECONDS you want the session to last (idle timeout).
+     * Default 86400 (24h); any page load refreshes session.
+     * Override via .env: session.expiration = 86400
      */
-    public int $expiration = 7200;
+    public int $expiration = 86400;
 
     /**
      * --------------------------------------------------------------------------

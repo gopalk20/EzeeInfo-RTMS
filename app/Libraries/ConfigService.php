@@ -36,6 +36,14 @@ class ConfigService
     }
 
     /**
+     * Session expiration seconds (idle timeout); default 24h (FR-000a1).
+     */
+    public function getSessionExpiration(): int
+    {
+        return (int) ($this->getConfig('session_expiration') ?? 86400);
+    }
+
+    /**
      * BR-5: Hourly Cost = Monthly Cost / (Working Days × Standard Hours)
      */
     public function calculateHourlyCost(float $monthlyCost): float

@@ -160,7 +160,7 @@ class AdminController extends BaseController
         $roleModel = new RoleModel();
         $teamModel = new TeamModel();
 
-        if ($this->request->getMethod() === 'post') {
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
             $rules = [
                 'username'   => 'required|max_length[64]',
                 'email'      => 'required|valid_email|is_unique[users.email]',
@@ -224,7 +224,7 @@ class AdminController extends BaseController
             return redirect()->to('/admin/users')->with('error', 'User not found.');
         }
 
-        if ($this->request->getMethod() === 'post') {
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
             $reportingManagerId = $this->request->getPost('reporting_manager_id');
             $isActive = $this->request->getPost('is_active');
             $newPassword = $this->request->getPost('new_password');
@@ -246,6 +246,24 @@ class AdminController extends BaseController
 
             $userModel->skipValidation(true)->update($id, $updates);
 
+            if (session()->get('user_role') === 'Super Admin') {
+                $monthlyCost = (float) ($this->request->getPost('monthly_cost') ?? 0);
+                $costModel = new ResourceCostModel();
+                $existing = $costModel->where('user_id', $id)->first();
+                if ($existing) {
+                    $costModel->update($existing['id'], [
+                        'monthly_cost' => $monthlyCost,
+                        'updated_at'   => date('Y-m-d H:i:s'),
+                    ]);
+                } else {
+                    $costModel->insert([
+                        'user_id'      => $id,
+                        'monthly_cost' => $monthlyCost,
+                        'updated_at'   => date('Y-m-d H:i:s'),
+                    ]);
+                }
+            }
+
             $msg = 'User updated successfully.';
             if (!empty($updates['password'])) {
                 $msg = 'User updated. Password reset successfully.';
@@ -257,6 +275,10 @@ class AdminController extends BaseController
         $roleIds = $roleModel->whereIn('name', ['Manager', 'Product Lead', 'Super Admin'])->findColumn('id');
         $managers = $roleIds ? $userModel->whereIn('role_id', $roleIds)->findAll() : [];
 
+        $costModel = new ResourceCostModel();
+        $costRow = $costModel->getForUser($id);
+        $user['monthly_cost'] = $costRow ? (float) $costRow['monthly_cost'] : '';
+
         $user['role_name'] = ($userModel->getRole($user)['name'] ?? '—');
         $user['team_name'] = ($userModel->getTeam($user)['name'] ?? '—');
 
@@ -266,6 +288,8 @@ class AdminController extends BaseController
             'user'          => $user,
             'managers'      => $managers,
             'user_email'    => session()->get('user_email'),
+            'user_role'     => session()->get('user_role'),
+            'is_super_admin'=> session()->get('user_role') === 'Super Admin',
             'success'       => session()->getFlashdata('success'),
             'error'         => session()->getFlashdata('error'),
             'csrf'          => csrf_token(),
@@ -275,7 +299,7 @@ class AdminController extends BaseController
 
     public function setReportingManager(int $id)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtolower((string) $this->request->getMethod()) !== 'post') {
             return redirect()->to('/admin/users');
         }
         $userModel = new UserModel();
@@ -291,7 +315,7 @@ class AdminController extends BaseController
 
     public function toggleActive(int $id)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtolower((string) $this->request->getMethod()) !== 'post') {
             return redirect()->to('/admin/users');
         }
         $userModel = new UserModel();
@@ -308,7 +332,7 @@ class AdminController extends BaseController
 
     public function resetUserPassword(int $id)
     {
-        if ($this->request->getMethod() === 'post') {
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
             $rules = [
                 'new_password'     => 'required|min_length[8]',
                 'confirm_password' => 'required|matches[new_password]',
@@ -377,7 +401,7 @@ class AdminController extends BaseController
 
     public function productAdd()
     {
-        if ($this->request->getMethod() === 'post') {
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
             $rules = ['name' => 'required|max_length[255]'];
             if (!$this->validate($rules)) {
                 return redirect()->back()->withInput()->with('error', 'Product name is required.');
@@ -411,7 +435,7 @@ class AdminController extends BaseController
         if (!$product) {
             return redirect()->to('/admin/products/manage')->with('error', 'Product not found.');
         }
-        if ($this->request->getMethod() === 'post') {
+        if (strtolower((string) $this->request->getMethod()) === 'post') {
             $rules = ['name' => 'required|max_length[255]'];
             if (!$this->validate($rules)) {
                 return redirect()->back()->withInput()->with('error', 'Product name is required.');
@@ -446,7 +470,7 @@ class AdminController extends BaseController
 
     public function productDelete(int $id)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtolower((string) $this->request->getMethod()) !== 'post') {
             return redirect()->to('/admin/products/manage');
         }
         $productModel = new ProductModel();
@@ -465,7 +489,7 @@ class AdminController extends BaseController
 
     public function productMemberAdd(int $productId)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtolower((string) $this->request->getMethod()) !== 'post') {
             return redirect()->to('/admin/products/edit/' . $productId);
         }
         $productModel = new ProductModel();
@@ -487,7 +511,7 @@ class AdminController extends BaseController
 
     public function productToggleDisabled(int $id)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtolower((string) $this->request->getMethod()) !== 'post') {
             return redirect()->to('/admin/products/manage');
         }
         $productModel = new ProductModel();
@@ -504,7 +528,7 @@ class AdminController extends BaseController
 
     public function productMemberRemove(int $productId, int $userId)
     {
-        if ($this->request->getMethod() !== 'post') {
+        if (strtolower((string) $this->request->getMethod()) !== 'post') {
             return redirect()->to('/admin/products/edit/' . $productId);
         }
         $productModel = new ProductModel();

@@ -12,73 +12,100 @@ class CostingController extends BaseController
     protected $helpers = ['form'];
 
     /**
-     * List resource costs; Manager-only.
+     * User costing VS Project costing display.
+     * User cost is configured in Manage Users > Edit User (Super Admin only).
      */
     public function index()
     {
         $session = session();
-        $costModel = new ResourceCostModel();
         $configService = new ConfigService();
+        $costModel = new ResourceCostModel();
         $workingDays = $configService->getWorkingDays();
         $standardHours = $configService->getStandardHours();
 
-        $costs = $costModel->getAllWithUsers();
-        $userModel = new UserModel();
-        $users = $userModel->select('id, email, first_name, last_name')->findAll();
+        $from = $this->request->getGet('from');
+        $to = $this->request->getGet('to');
+        if (!$from || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) {
+            $from = date('Y-m-01');
+        }
+        if (!$to || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+            $to = date('Y-m-t');
+        }
+        if (strtotime($from) > strtotime($to)) {
+            $to = $from;
+        }
 
-        foreach ($costs as &$c) {
-            $monthly = (float) ($c['monthly_cost'] ?? 0);
-            $c['hourly_cost'] = ($workingDays > 0 && $standardHours > 0)
-                ? round($monthly / ($workingDays * $standardHours), 2)
+        $db = \Config\Database::connect();
+
+        // User costing: users with time entries in period, their hours and cost
+        $userCosting = $db->query("
+            SELECT u.id, u.email, u.first_name, u.last_name,
+                   SUM(te.hours) as total_hours
+            FROM users u
+            JOIN time_entries te ON te.user_id = u.id
+                AND te.work_date >= ? AND te.work_date <= ?
+            GROUP BY u.id, u.email, u.first_name, u.last_name
+            ORDER BY u.email
+        ", [$from, $to])->getResultArray();
+
+        foreach ($userCosting as &$r) {
+            $hrs = (float) ($r['total_hours'] ?? 0);
+            $costRow = $costModel->getForUser((int) $r['id']);
+            $monthly = $costRow ? (float) $costRow['monthly_cost'] : 0;
+            $hourly = ($workingDays > 0 && $standardHours > 0)
+                ? $monthly / ($workingDays * $standardHours)
                 : 0;
+            $r['hourly_cost'] = round($hourly, 2);
+            $r['period_cost'] = round($hrs * $hourly, 2);
+            $r['monthly_cost'] = $monthly;
+        }
+
+        // Project costing: products with time entries, total hours and cost
+        $projectCosting = $db->query("
+            SELECT p.id, p.name as product_name,
+                   SUM(te.hours) as total_hours
+            FROM products p
+            JOIN tasks t ON t.product_id = p.id
+            JOIN time_entries te ON te.task_id = t.id
+                AND te.work_date >= ? AND te.work_date <= ?
+            WHERE (p.product_type IS NULL OR p.product_type != 'leave')
+            GROUP BY p.id, p.name
+            ORDER BY p.name
+        ", [$from, $to])->getResultArray();
+
+        foreach ($projectCosting as &$r) {
+            $productId = (int) $r['id'];
+            $costRows = $db->query("
+                SELECT te.user_id, SUM(te.hours) as hours
+                FROM time_entries te
+                JOIN tasks t ON t.id = te.task_id
+                WHERE t.product_id = ? AND te.work_date >= ? AND te.work_date <= ?
+                GROUP BY te.user_id
+            ", [$productId, $from, $to])->getResultArray();
+            $totalCost = 0.0;
+            foreach ($costRows as $cr) {
+                $costRow = $costModel->getForUser((int) $cr['user_id']);
+                $monthly = $costRow ? (float) $costRow['monthly_cost'] : 0;
+                $hourly = ($workingDays > 0 && $standardHours > 0)
+                    ? $monthly / ($workingDays * $standardHours)
+                    : 0;
+                $totalCost += (float) $cr['hours'] * $hourly;
+            }
+            $r['period_cost'] = round($totalCost, 2);
         }
 
         $smarty = new SmartyEngine();
         return $smarty->render('costing/index.tpl', [
-            'title'          => 'Resource Costing',
-            'costs'          => $costs,
-            'users'          => $users,
-            'working_days'   => $workingDays,
-            'standard_hours' => $standardHours,
-            'user_email'     => $session->get('user_email'),
-            'user_role'      => $session->get('user_role'),
-            'is_super_admin'=> $session->get('user_role') === 'Super Admin',
-            'success'        => $session->getFlashdata('success'),
-            'error'          => $session->getFlashdata('error'),
-            'csrf'           => csrf_token(),
-            'hash'           => csrf_hash(),
+            'title'           => 'Resource Costing',
+            'user_costing'    => $userCosting,
+            'project_costing' => $projectCosting,
+            'from'            => $from,
+            'to'              => $to,
+            'working_days'    => $workingDays,
+            'standard_hours'  => $standardHours,
+            'user_email'      => $session->get('user_email'),
+            'user_role'       => $session->get('user_role'),
+            'nav_active'      => 'costing',
         ]);
-    }
-
-    public function save()
-    {
-        $session = session();
-        if ($this->request->getMethod() !== 'post') {
-            return redirect()->to('/costing');
-        }
-
-        $userId = (int) $this->request->getPost('user_id');
-        $monthlyCost = (float) $this->request->getPost('monthly_cost');
-
-        if ($userId <= 0) {
-            return redirect()->to('/costing')->with('error', 'Invalid user.');
-        }
-
-        $costModel = new ResourceCostModel();
-        $existing = $costModel->where('user_id', $userId)->first();
-        if ($existing) {
-            $costModel->update($existing['id'], [
-                'monthly_cost' => $monthlyCost,
-                'updated_at'   => date('Y-m-d H:i:s'),
-            ]);
-        } else {
-            $costModel->insert([
-                'user_id'      => $userId,
-                'monthly_cost' => $monthlyCost,
-                'updated_at'   => date('Y-m-d H:i:s'),
-            ]);
-        }
-
-        return redirect()->to('/costing')->with('success', 'Cost saved.');
     }
 }

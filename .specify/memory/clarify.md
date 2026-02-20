@@ -264,7 +264,7 @@ Answer each question below. Your responses will be captured and used to update t
 
 **Question**: For Finance reports in MVP, should "project" = product (single entity), or do we need a separate Project entity that groups Products?
 
-**Response**: _[Your answer]_
+**Response**: [x] For MVP, project = product. Single entity; no separate Project entity. Finance "project-wise" = product-wise. Simplest approach for MVP.
 
 ---
 
@@ -273,7 +273,7 @@ Answer each question below. Your responses will be captured and used to update t
 
 **Question**: For MVP, is single Manager approval sufficient, or do you need a defined sequence (e.g., Product Lead recommends → Manager approves)?
 
-**Response**: _[Your answer]_
+**Response**: [x] Single Manager approval sufficient for MVP. Product Lead approves timesheets only; Manager approves tasks and timesheets for direct reports.
 
 ---
 
@@ -282,7 +282,7 @@ Answer each question below. Your responses will be captured and used to update t
 
 **Question**: Who changes status to "Rework Requested"? Product Lead, Manager, or both?
 
-**Response**: _[Your answer]_
+**Response**: [x] Product Lead or Manager can reopen/change status. Employee finds out via task status update in UI.
 
 ---
 
@@ -305,6 +305,103 @@ Answer each question below. Your responses will be captured and used to update t
 
 ---
 
+## 10. Email Reminders & Configurable Templates (v1.9.1)
+
+### Q10.1 Email configuration location
+**Context**: FR-035—Super Admin configures email settings. CodeIgniter has app/Config/Email.php and .env.
+
+**Question**: Where should SMTP settings (host, port, credentials) be configured?
+- **A)** .env only (no UI; admin edits .env)
+- **B)** Super Admin UI in Admin section; stored in config table
+- **C)** Both: .env for sensitive credentials; Admin UI for non-sensitive (from address, etc.)
+- **D)** Other: _[Specify]_
+
+**Response**: [x] C) Both. .env for sensitive credentials (SMTP password, etc.); Admin UI for from address, reply-to, and other non-sensitive settings. Best practice for security and flexibility.
+
+---
+
+### Q10.2 Employee reminder: "missed last 1 week"
+**Context**: FR-036—Send reminder when employee "missed entering timesheet for last 1 week."
+
+**Question**: How is "missed" defined?
+- **A)** Zero time entries for the entire week (Mon–Sun)
+- **B)** Zero entries for any work day in the week (excluding weekends?)
+- **C)** Zero entries for configurable working days
+- **D)** Other: _[Specify]_
+
+**Response**: [x] Per work day (Monday–Friday), employee should log 8 hours or more. "Missed" = any work day in the week has fewer than 8 hours logged. Weekdays only (Mon–Fri).
+
+---
+
+### Q10.3 Employee reminder: "month end"
+**Context**: FR-036—Monthly check validates respective month.
+
+**Question**: When does the monthly reminder run? On the 1st of the next month? Last day of month? Configurable day?
+
+**Response**: [x] Last day of the month. Monthly reminder runs on the last day of the month (e.g., Jan 31, Feb 28/29, Apr 30).
+
+---
+
+### Q10.4 Approver reminder scope
+**Context**: FR-037—Reminder to approvers for "respective reports/product members."
+
+**Question**: Should Manager receive one email listing all direct reports with pending timesheets, or one email per report? Product Lead: one per product or consolidated?
+
+**Response**: [x] Consolidated report. One email per approver listing all pending timesheets (direct reports for Manager; product members for Product Lead). Single consolidated email.
+
+---
+
+### Q10.5 Reminder schedule (cron)
+**Context**: Reminders run weekly/monthly.
+
+**Question**: How should reminders be triggered?
+- **A)** Cron job or system scheduler calling CLI command
+- **B)** In-app scheduled task (e.g., on first request after midnight)
+- **C)** External cron hits a protected URL
+- **D)** Other: _[Specify]_
+
+**Response**: [x] A) Automatic via cron or system scheduler. CLI command (e.g., `php spark remind:timesheet`) called by cron; runs weekly (e.g., Monday AM) and monthly (last day of month). Fully automatic.
+
+---
+
+### Q10.6 Template placeholders
+**Context**: FR-038—Placeholders like {employee_name}, {period}, {approval_count}.
+
+**Question**: Which placeholders must be supported for each template type? List required placeholders for employee (weekly/monthly) and approver (weekly/monthly) templates.
+
+**Response**: [x] **Employee reminder (weekly/monthly)**: {employee_name}, {period} (e.g., "Week of Jan 13–17" or "January 2026"), {missing_days} (days with &lt;8h), {login_url}. **Approver reminder (weekly/monthly)**: {approver_name}, {period}, {approval_count}, {pending_list} (names/counts of reports with pending), {approval_url}.
+
+---
+
+## 11. Session, URL & User Cost (v1.9.0)
+
+### Q11.1 Session 24h idle
+**Context**: FR-000a1—Session valid for 24h idle; activity refreshes.
+
+**Question**: Does "activity" mean any page load, or only form submission/API calls? Should simple page refreshes extend the session?
+
+**Response**: [x] Any page load. Any authenticated page load (or API call) refreshes the session. Simple page refreshes extend the 24h idle window.
+
+---
+
+### Q11.2 URL domain-only
+**Context**: FR-000a2—Address bar should not expose internal routes; only domain displayed.
+
+**Question**: For a traditional server-rendered app, hiding the path requires History API replaceState on every navigation. Is this acceptable (e.g., URL stays as https://domain.com/ even when viewing /timesheet/view), or should we use hash-based routing (https://domain.com/#/timesheet/view)?
+
+**Response**: [x] URL domain-only. Address bar displays only the domain (e.g., https://domain.com/). Use History API replaceState on navigation to keep URL at base; internal routes remain in app state but not in address bar.
+
+---
+
+### Q11.3 User cost: who can edit?
+**Context**: FR-005c—Super Admin defines cost; Manager sees per-day.
+
+**Question**: Can Manager edit user cost, or only Super Admin? Is Costing page (resource_costs) Super Admin + Manager, or Super Admin only?
+
+**Response**: [x] Only Super Admin can edit user cost (salary). Manager can view per-day cost but cannot add/edit resource_costs. Costing edit UI restricted to Super Admin; or separate Admin > User Cost UI for Super Admin only.
+
+---
+
 ## Summary
 
 | Category        | Questions | Resolved |
@@ -314,12 +411,14 @@ Answer each question below. Your responses will be captured and used to update t
 | D+N & Rework    | 3         | 3        |
 | Approval        | 3         | 3        |
 | Brownfield      | 3         | 3        |
-| Edge Cases      | 3         | 3            |
+| Edge Cases      | 3         | 3        |
 | Finance         | 2         | 2        |
-| Post-Plan       | 4         | 0        |
+| Post-Plan       | 4         | 4        |
 | Auth & Profile  | 5         | 5        |
+| Email Reminders | 6         | 6        |
+| Session, URL, Cost | 3     | 3        |
 
-**Next step**: Answer Q6.2 and optional Post-Plan questions to refine the implementation. Plan already created; assumptions documented for unresolved items.
+**Next step**: All clarification questions resolved. Proceed to implementation per plan and tasks.
 
 ---
 
@@ -346,4 +445,4 @@ Answer each question below. Your responses will be captured and used to update t
 
 ---
 
-**Version**: 1.5.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (timesheet workflow, reporting, CRUD, access control, Vertex UI)
+**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Email reminders, Session/URL/Cost clarifications; Post-Plan resolved)

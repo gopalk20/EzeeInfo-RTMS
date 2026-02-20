@@ -1,15 +1,15 @@
 # Implementation Plan: RTMS Baseline
 
 **Branch**: `feature/rtms-implementation` | **Date**: 2026-02-19 | **Spec**: [.specify/memory/spec.md](.specify/memory/spec.md)  
-**Input**: Baseline specification, constitution v1.0.0, clarify.md responses
+**Input**: Baseline specification, constitution v1.9.1, clarify.md (all resolved)
 
 ---
 
 ## Summary
 
-Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance, Super Admin), user profile (Name, email, role, team), logout, self-service password reset, Super Admin add user and reset password, time logging with D+N policy, rework tracking, Manager-only approval, and Finance reports with export.
+Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + CodeIgniter 4 + Smarty + MySQL stack. Core deliverables: product/task management, GitHub integration (Issues + PRs via Webhooks), role-based access (Employee, Product Lead, Manager, Finance, Super Admin), user profile (Name, email, role, team), logout, self-service password reset, Super Admin add user and reset password, time logging with D+N policy, rework tracking, Product Lead/Manager approvals, Finance reports with export. **Added (v1.9.x)**: Cloud security (HTTPS, secure cookies, rate limiting), 24h session idle (any page load refreshes), URL domain-only, Super Admin defines user cost (Manager views per-day), email reminders (employee missed timesheet: Mon–Fri fewer than 8h per work day or month end; approver consolidated weekly/monthly), configurable email templates.
 
-**Technical approach**: Layered architecture (Controllers → Models/Services → Database). New schema via migrations. GitHub Webhooks for real-time status. RBAC via Filters. Configuration in database/env for BR-1, BR-2.
+**Technical approach**: Layered architecture (Controllers → Models/Services → Database). New schema via migrations. GitHub Webhooks for real-time status. RBAC via Filters. Configuration in database/env for BR-1, BR-2. Email via CodeIgniter Email (SMTP). Reminders via CLI + cron.
 
 ---
 
@@ -23,7 +23,7 @@ Build the Resource Timesheet Management System (RTMS) on the existing PHP 8.4 + 
 | **Storage** | MySQL 8.x, UTF8MB4 |
 | **Testing** | PHPUnit (CodeIgniter test runner) |
 | **Target** | Web application (php spark serve / Apache) |
-| **External APIs** | GitHub REST API, GitHub Webhooks |
+| **External APIs** | GitHub REST API, GitHub Webhooks; SMTP for email |
 | **Constraints** | Constitution Principles I–VIII; BR-1 to BR-5 |
 | **Scale** | Product-based company; multi-product, multi-member |
 
@@ -237,18 +237,47 @@ writable/
 
 ---
 
+### Phase 11: Cloud Security, Session, URL, User Cost (v1.9.0)
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 11.1 | HTTPS redirect, secure cookies (HttpOnly, Secure, SameSite), rate limiting on login | FR-032 |
+| 11.2 | Input validation, parameterized queries, XSS prevention, security headers | FR-033 |
+| 11.3 | Document security practices for voluntary disclosure | FR-034 |
+| 11.4 | Session: 24h idle (86400s config); any page load refreshes | FR-000a1, Q11.1 |
+| 11.5 | URL: History API replaceState; address bar shows domain only | FR-000a2, Q11.2 |
+| 11.6 | User cost: Super Admin only can edit; Manager views per-day (monthly_cost / days_in_month) | FR-005c, Q11.3 |
+
+---
+
+### Phase 12: Email Reminders & Configurable Templates (v1.9.1)
+
+| Task | Description | FR |
+|------|-------------|-----|
+| 12.1 | Email config: .env for SMTP credentials; Admin UI for from/reply-to | FR-035, Q10.1 |
+| 12.2 | Migration/config: email_templates (subject, body) for 4 template types | FR-038 |
+| 12.3 | Employee reminder (weekly): Mon–Fri; "missed" = any work day fewer than 8h; send to employees who missed | FR-036, Q10.2 |
+| 12.4 | Employee reminder (monthly): run last day of month; validate respective month | FR-036, Q10.3 |
+| 12.5 | Approver reminder: consolidated (one email per approver); list all pending timesheets | FR-037, Q10.4 |
+| 12.6 | CLI command (e.g., `php spark remind:timesheet`) for cron; weekly + monthly triggers | FR-035–037, Q10.5 |
+| 12.7 | Super Admin UI: manage email templates; placeholders {employee_name}, {period}, {missing_days}, {approval_count}, {pending_list}, {login_url}, {approval_url} | FR-038, Q10.6 |
+
+---
+
 ## Data Model (High-Level)
 
 ```text
-users (existing) + role_id
-roles (Employee, Product Lead, Manager, Finance)
-config (key, value) — BR-1, BR-2, working_days, standard_hours
-products (name, start_date, end_date, max_allowed_hours, github_repo_url, github_token_encrypted)
+users (existing) + role_id, reporting_manager_id, is_active
+roles (Employee, Product Lead, Manager, Finance, Super Admin)
+config (key, value) — BR-1, BR-2, working_days, standard_hours; session_expiration (86400)
+products (name, start_date, end_date, max_allowed_hours, github_repo_url, is_disabled, product_type)
 product_members (product_id, user_id)
 tasks (product_id, github_issue_id, title, status, assignee_id, linked_branch, milestone_id)
 milestones (product_id, name, due_date, release_status)
-time_entries (task_id, user_id, work_date, hours, is_rework, created_at)
+time_entries (task_id, user_id, work_date, hours, is_rework, status, created_at)
 approvals (task_id, approver_id, approved_at, status)
+resource_costs (user_id, monthly_cost) — Super Admin edit only; Manager view
+email_templates (type, subject, body) — employee_timesheet_reminder_weekly|monthly, approver_reminder_weekly|monthly
 audit_log (entity, entity_id, user_id, action, before, after, created_at)
 ```
 
@@ -259,10 +288,12 @@ audit_log (entity, entity_id, user_id, action, before, after, created_at)
 | # | Assumption | Risk |
 |---|------------|------|
 | A1 | Timeline exceeded (Q6.2): Show warning only; allow logging (resolved) | Low |
-| A2 | Multi-level approval: Start with single Manager approval; add levels later if needed | Low |
-| A3 | Product = Project for Finance reports (Q2.2: Product ≠ Project TBD) | Medium |
+| A2 | Product Lead approves timesheets; Manager approves tasks and timesheets for direct reports (Q8.3) | Low |
+| A3 | Product = Project for Finance reports (Q8.2: resolved) | Low |
 | A4 | GitHub Webhook requires public URL or ngrok for local dev | Low |
 | A5 | Existing UserModel/Users table can be extended with role_id | Low |
+| A6 | Email: .env for SMTP creds; Admin UI for non-sensitive; cron calls CLI for reminders | Low |
+| A7 | Employee "missed" = any Mon–Fri work day with fewer than 8h; monthly reminder runs last day of month | Low |
 
 ---
 
@@ -271,6 +302,8 @@ audit_log (entity, entity_id, user_id, action, before, after, created_at)
 - PHP 8.4 with extensions: pdo_mysql, curl, json, mbstring
 - MySQL 8.x
 - GitHub App or PAT with repo scope (Issues, PRs, Webhooks)
+- SMTP server or mail service for reminder emails
+- Cron or system scheduler (for remind:timesheet CLI)
 - Composer packages: possibly `knplabs/github-api` or similar for GitHub; export libs for PDF/Excel
 
 ---
@@ -300,7 +333,9 @@ No constitution violations requiring justification. Plan follows layered archite
 | **Phase 8 (New)** | ✓ Complete | reporting_manager_id, is_active; user enable/disable; profile reporting manager; product access control; Vertex UI |
 | **Phase 9 (Approval)** | ✓ Complete | Approval POST fix; timesheet reject; icon buttons; Approved Task/Timesheet sections |
 | **Phase 10 (Leave, Dashboard, Dept)** | ✓ Complete | Leave products (product_type); Admin Dashboard (Manager+Super Admin); Team Timesheet department filter; Manage Users form fix |
+| **Phase 11 (Security, Session, URL, Cost)** | ✓ Partial | Cloud security (CSRF, SecureHeaders, rate limit); 24h session idle; user cost in Manage Users > Edit; Manager per-day view in Team Timesheet; SECURITY.md; T114 (URL masking) TODO |
+| **Phase 12 (Email Reminders)** | Pending | SMTP config; employee reminder (Mon–Fri fewer than 8h, month end); approver consolidated; CLI + cron; configurable templates |
 
 ---
 
-**Version**: 1.8.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Leave products, Admin Dashboard, Department filter)
+**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (Phase 11 partial; costing redesign; security; user cost in Manage Users)

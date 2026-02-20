@@ -41,6 +41,7 @@
             <th style="padding: 12px; text-align: left;">ALLOCATION</th>
             <th style="padding: 12px; text-align: left;">BILLING ROLE</th>
             <th style="padding: 12px; text-align: right;">BILLING RATE (HR)</th>
+            {if $can_see_cost}<th style="padding: 12px; text-align: right;">PER-DAY COST</th>{/if}
             <th style="padding: 12px; text-align: left;">HOURS SPENT / ALLOCATED</th>
             <th style="padding: 12px; text-align: center;">ACTIONS</th>
         </tr>
@@ -59,6 +60,7 @@
             </td>
             <td style="padding: 12px;">{$r.billing_role|escape}</td>
             <td style="padding: 12px; text-align: right;">{$r.billing_rate|string_format:"%.2f"}</td>
+            {if $can_see_cost}<td style="padding: 12px; text-align: right;">{$r.per_day_cost|string_format:"%.2f"}</td>{/if}
             <td style="padding: 12px; min-width: 180px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px;">

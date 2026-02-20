@@ -1,9 +1,21 @@
 <!-- ================================================================================
-SYNC IMPACT REPORT - Constitution v1.8.1
+SYNC IMPACT REPORT - Constitution v1.9.1
 ================================================================================
 Date: 2026-02-19
-Version Change: v1.8.0 → v1.8.1 (Timesheet date selection, grid UX fixes)
+Version Change: v1.9.0 → v1.9.1 (Email reminders, configurable templates)
 Ratification Date: 2026-02-19
+
+CHANGES FROM v1.9.0:
+✓ Email configuration - System MUST support configurable email (SMTP etc.) for sending reminder emails
+✓ Employee timesheet reminder - Send email to employees who missed timesheet: weekly (Mon–Fri; missed = any work day fewer than 8h); monthly runs last day of month
+✓ Approver reminder - Send email to approvers every week or month to approve respective pending timesheets
+✓ Configurable email templates - Super Admin can modify email subject and content for all reminder templates; stored in config or email_templates table
+
+CHANGES FROM v1.8.1:
+✓ Cloud Security - New section: Security for Cloud Deployment; HTTPS, secure cookies, rate limiting, input validation, SQL injection prevention, XSS prevention, security headers; voluntary disclosure best practices
+✓ Session Idle - Session remains valid for 24 hours of idle time; configurable session expiration (config); logout only after 24h idle
+✓ Browser URL - Address bar should display only domain (or base URL); avoid exposing internal routes/paths in URL for security (History API replaceState or equivalent)
+✓ User Cost (Salary) - Super Admin defines monthly cost (salary) per user; stored in resource_costs; Manager sees per-day cost spent per employee; per-day = monthly_cost / days_in_month (Jan=31, Apr=30, Feb=28/29)
 
 CHANGES FROM v1.8.0:
 ✓ Time Sheet Grid - Removed from UI navigation: no sidebar link, no button on View Summary or index; route /timesheet/sheet remains available if accessed directly
@@ -144,7 +156,7 @@ The RTMS operates on core entities, each with defined responsibilities:
 - **TimeEntry**: Logged time against a task; work_date, hours, is_rework flag, status (pending_approval, approved); subject to D+N policy and approval workflow; employee can edit while pending_approval
 - **Approval**: Task approval; Manager-only; records approver, timestamp, status; locks task and time entries
 - **CostConfig**: Resource costing (Manager-only visibility); monthly cost, working days, standard hours
-- **Config**: Key-value for BR-1 (daily_hours_limit), BR-2 (D, N), working_days, standard_hours
+- **Config**: Key-value for BR-1 (daily_hours_limit), BR-2 (D, N), working_days, standard_hours; email_templates (subject, body for employee timesheet reminder, approver reminder)
 - **AuditLog**: Before/after for editable changes; user, timestamp, entity, action
 
 These entities form the persistent domain model; all business logic operates on these constructs. No new core entities may be introduced without formal architectural review.
@@ -165,9 +177,9 @@ The RTMS enforces four roles with distinct capabilities (aligned with spec.md):
 
 - **Employee**: Can view assigned products/tasks, change task status, link GitHub branch (select from list), log time (with is_rework option), respond to rework requests. Cannot create products/tasks, assign tasks, approve, view other employees' performance, or edit completed/approved timing.
 - **Product Lead**: Can add/remove product members, integrate GitHub repo, assign tasks, monitor progress. Can approve timesheet entries for members of products they lead. Cannot see financial costing or modify system-wide users/roles. Sees consolidated timesheet for their product members.
-- **Manager (Admin)**: All Product Lead capabilities plus: approve task completion and timesheet entries (for direct reports via reporting_manager_id), system-wide user/role management, view and manage financial costing, create/delete/modify tasks. Sees consolidated timesheet for their reports.
+- **Manager (Admin)**: All Product Lead capabilities plus: approve task completion and timesheet entries (for direct reports via reporting_manager_id), system-wide user/role management, view and manage financial costing, create/delete/modify tasks. Sees consolidated timesheet for their reports. **Per-day cost**: Manager sees per-day cost spent per employee (monthly_cost / days_in_month, e.g. Jan=31, Apr=30).
 - **Finance**: Can view employee-wise and task-wise time consumption, rework impact, performance reports; export CSV/PDF/Excel. Cannot create/modify products or tasks, approve or change task status, or see financial costing (Manager only).
-- **Super Admin**: Full system access; add new users; reset any user's password; enable/disable users (disabled users cannot log in); modify reporting manager for any user; product CRUD (add, edit, delete, rename); grant/revoke product access to manager/product lead; Manager and Super Admin share task CRUD (create, edit, delete). Product/Task delete: block if users or time entries mapped; show success/error messages for CRUD operations.
+- **Super Admin**: Full system access; add new users; reset any user's password; enable/disable users (disabled users cannot log in); modify reporting manager for any user; product CRUD (add, edit, delete, rename); grant/revoke product access to manager/product lead; Manager and Super Admin share task CRUD (create, edit, delete). Product/Task delete: block if users or time entries mapped; show success/error messages for CRUD operations. **Define user cost (salary)**: Super Admin can set monthly cost per user (stored in resource_costs); used for per-day cost calculation visible to Manager. **Email templates**: Super Admin can configure email reminder templates (subject and content) for employee timesheet reminders and approver reminders.
 
 RBAC rules are evaluated at the filter/controller level and cannot be bypassed.
 
@@ -181,15 +193,32 @@ RBAC rules are evaluated at the filter/controller level and cannot be bypassed.
 | Database | MySQL 8.x | UTF8MB4; transactions for multi-step operations |
 | External API | GitHub REST/GraphQL | Rate limiting, token rotation, error handling |
 
-**Integration Points**: GitHub (Issues + PRs, Webhooks for push/merge); future: HR/payroll systems via defined APIs.
+**Integration Points**: GitHub (Issues + PRs, Webhooks for push/merge); Email (SMTP) for reminder notifications; future: HR/payroll systems via defined APIs.
+
+**Email & Reminders**: Configurable email (SMTP); .env for credentials, Admin UI for non-sensitive. Employee reminder: weekly (Mon–Fri; missed = any work day fewer than 8h) or monthly (last day of month). Approver reminder: consolidated, weekly/monthly. Cron/CLI triggers automatically. Super Admin configures templates (placeholders: employee_name, period, missing_days, approval_count, etc.). Only Super Admin edits user cost; Manager views per-day.
 
 ## Security & Compliance
 
+### Authentication & Session
+
 - **Authentication**: Login page required. Logout available. User profile (Name, email, role, team name). Self-service password reset. Super Admin can reset any user's password and add new users. Individual users authenticate via email/password before accessing any RTMS feature. Session-based; secure cookie flags; CSRF on all state-changing requests
+- **Session Idle**: Session MUST remain valid for 24 hours of idle time before automatic logout. Configurable via config (session expiration in seconds; default 86400 for 24h). User activity refreshes the session; inactivity for 24h triggers logout.
 - **Authorization**: Filter-based role checks on every controller; no client-side-only enforcement
 - **Sensitive Data**: Passwords hashed (bcrypt/argon2); GitHub tokens encrypted in DB or env; no secrets in logs
 - **Audit Trail**: Approval actions, role changes, config changes, time entry edits (before/after) logged with user and timestamp
 - **Data Retention**: Define retention for timesheet data; comply with local labor regulations
+
+### Security for Cloud Deployment (Anti-Hacking)
+
+- **HTTPS**: All production traffic MUST use HTTPS (TLS 1.2+). Enforce secure redirect; no mixed content.
+- **Secure Cookies**: Session and auth cookies MUST have HttpOnly, Secure, SameSite (Strict or Lax) flags when deployed to cloud.
+- **Rate Limiting**: Implement rate limiting on login, password reset, and sensitive endpoints to prevent brute-force and DoS.
+- **Input Validation**: All user input validated server-side; reject malformed or oversize payloads; use parameterized queries (no raw SQL concatenation).
+- **SQL Injection Prevention**: Use query builder or prepared statements only; never concatenate user input into SQL.
+- **XSS Prevention**: Escape all output; use Smarty |escape; no raw HTML from user input; Content-Security-Policy headers where feasible.
+- **Security Headers**: Set X-Content-Type-Options: nosniff, X-Frame-Options: DENY or SAMEORIGIN, Referrer-Policy as appropriate.
+- **Browser URL**: The application SHOULD NOT expose internal routes or page paths in the browser address bar. Only domain (or base URL) should be displayed where feasible—e.g., via History API replaceState, hash-based routing, or equivalent—to reduce information disclosure to attackers.
+- **Voluntary Disclosures**: Document security practices (e.g., in a security policy or README): data encryption at rest/transit, access controls, audit logging, vulnerability reporting contact.
 
 ## Edge Cases (Resolved)
 
@@ -223,4 +252,4 @@ This constitution is the source of truth for all development decisions on the RT
 - Business rules BR-1 through BR-5 are enforced
 - Edge cases handled per table above
 
-**Version**: 1.8.1 | **Ratified**: 2026-02-19 | **Last Amended**: 2026-02-19 (Timesheet date selection, grid UX fixes)
+**Version**: 1.9.1 | **Ratified**: 2026-02-19 | **Last Amended**: 2026-02-19 (Email reminders, configurable templates)

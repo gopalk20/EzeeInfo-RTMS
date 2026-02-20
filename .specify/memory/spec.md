@@ -1,8 +1,8 @@
 # Baseline Specification: Resource Timesheet Management System (RTMS)
 
 **Created**: 2026-02-19  
-**Status**: In progress (Leave products, Admin Dashboard, Department filter; Timesheet date selection fixes)  
-**Constitution**: v1.8.1  
+**Status**: In progress (Email reminders, configurable templates)  
+**Constitution**: v1.9.1  
 **Input**: Role capabilities, product workflows, task lifecycle, reporting structure
 
 ---
@@ -53,6 +53,7 @@
 - View and manage financial costing
 - Create, delete, modify tasks (within products they manage)
 - View consolidated timesheet (team timesheet) for their reports by daily/weekly/monthly
+- **Per-day cost**: See per-day cost spent per employee (monthly_cost / days_in_month; Jan=31, Apr=30, Feb=28/29)
 
 ### 1.3 Employee
 
@@ -95,6 +96,8 @@
 - Grant/revoke product access to manager or product lead (product_members UI)
 - Task CRUD: create, delete, modify task (with Manager); delete blocked if time entries mapped
 - Success/error messages for all product and task CRUD operations
+- **Define user cost (salary)**: Set monthly cost per user; stored in resource_costs; used for per-day cost visibility to Manager
+- **Configure email templates**: Modify subject and content for employee timesheet reminder (weekly/monthly) and approver reminder (weekly/monthly); templates configurable via Admin UI
 
 **Cannot Do**:
 - None (full system access)
@@ -242,6 +245,8 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 - **FR-000**: System MUST provide a login page for individual user authentication. All timesheet logging, product/task management, and reports require authenticated session. Unauthenticated users are redirected to login.
 - **FR-000a**: System MUST provide logout functionality for all authenticated users.
+- **FR-000a1**: System MUST keep session valid for 24 hours of idle time; user activity refreshes session; after 24h idle, user is logged out. Configurable via config (session expiration seconds; default 86400).
+- **FR-000a2**: System SHOULD NOT expose internal routes or page paths in the browser address bar; only domain (or base URL) displayed where feasible (e.g., History API replaceState, hash routing).
 - **FR-000b**: System MUST provide a user profile page showing Name, email, current role, team name for the logged-in user.
 - **FR-000c**: System MUST allow any user to reset their own password (self-service).
 - **FR-000d**: System MUST allow Super Admin to reset any user's password.
@@ -253,6 +258,7 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-003**: System MUST prevent Finance from creating/modifying products or tasks, or approving/changing task status
 - **FR-004**: System MUST prevent Product Lead from modifying system-wide users or roles
 - **FR-005**: System MUST restrict financial costing visibility to Manager only (Product Lead and Finance cannot see costing)
+- **FR-005c**: System MUST allow Super Admin (only) to define and store monthly cost (salary) per user in resource_costs. Manager MUST see per-day cost spent per employee (view only). Per-day = monthly_cost / days_in_month (Jan=31, Apr=30, Feb=28/29).
 
 ### Product & Membership
 
@@ -306,11 +312,24 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 - **FR-026**: System MUST integrate with GitHub via Webhooks for repository linking, sync of Issues + PRs, branch tracking, and commit/merge detection; disable sync on failure until fixed
 - **FR-027**: System MUST monitor task progress (e.g., status, time logged, commits)
 
+### Email & Reminders
+
+- **FR-035**: System MUST support configurable email (SMTP or equivalent); Super Admin configures email settings (e.g., host, port, credentials) for sending reminder emails.
+- **FR-036**: System MUST send reminder email to employees who missed entering timesheet: (a) for last 1 week—weekly check validates Mon–Fri; "missed" = any work day has fewer than 8 hours logged; (b) for month end—monthly check runs on last day of month. Each employee receives one email per missed period.
+- **FR-037**: System MUST send reminder email to approvers (Manager, Product Lead) every week or month to approve pending timesheets; consolidated (one email per approver listing all pending). Frequency configurable (weekly/monthly).
+- **FR-038**: Super Admin MUST be able to modify email subject and content for: (a) employee timesheet reminder (weekly), (b) employee timesheet reminder (monthly), (c) approver reminder (weekly), (d) approver reminder (monthly). Templates stored in config or email_templates table; placeholders (e.g., {employee_name}, {period}, {approval_count}) supported.
+
+### Security for Cloud Deployment
+
+- **FR-032**: System MUST use HTTPS in production; secure cookies (HttpOnly, Secure, SameSite); rate limiting on login and sensitive endpoints.
+- **FR-033**: System MUST validate all input server-side; use parameterized queries (no SQL injection); escape output (XSS prevention); set security headers (X-Content-Type-Options, X-Frame-Options).
+- **FR-034**: Document security practices (encryption, access controls, audit logging, vulnerability reporting) for voluntary disclosure.
+
 ---
 
 ## 5. Key Entities
 
-- **User**: username, email, first_name, last_name, phone, password (hashed), role_id, team_id, reporting_manager_id, is_active
+- **User**: username, email, first_name, last_name, phone, password (hashed), role_id, team_id, reporting_manager_id, is_active. **resource_costs**: user_id, monthly_cost (salary) defined by Super Admin; per-day cost = monthly_cost / days_in_month. **Email templates**: config or email_templates table; subject and body for employee_timesheet_reminder_weekly, employee_timesheet_reminder_monthly, approver_reminder_weekly, approver_reminder_monthly.
 - **Team**: id, name (team name for grouping users)
 - **Product**: Represents a deliverable or project; has name, timeline, max allowed time, GitHub repo link, members, is_disabled, product_type (null=normal, 'leave'=leave); disabled products excluded from main product list; leave products (Holiday, Sick Leave, Planned Leave, Training) have assignee_id=null tasks, available to all users for time logging
 - **Task**: Represents work unit; has status (To Do/In Progress/Completed), assignment, linked branch, time log, rework log
@@ -353,9 +372,10 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 | **Products** | ✓ | list, view, sync; Super Admin: add/edit/delete/disable-enable (AdminController); products.is_disabled; delete blocks if users/tasks mapped |
 | **Product Access** | ✓ | Grant/revoke product_members; AdminController::productMemberAdd/Remove |
 | **Tasks** | ✓ | list; Manager/Super Admin: add/edit/delete on product view; delete blocks if time entries mapped |
-| **User Management** | ✓ | Super Admin: add user, reset password, enable/disable, modify reporting manager; Manage Users: table (Name, Email, Role, Team, Reporting Manager, Status, Edit); Edit page for Reporting Manager, Status, Password; Department/Team filter (form preserves search/sort) |
+| **User Management** | ✓ | Super Admin: add user, reset password, enable/disable, modify reporting manager, **monthly cost (salary)**; Manage Users: table (Name, Email, Role, Team, Reporting Manager, Status, Edit); Edit page for Reporting Manager, Status, **Monthly Cost** (Super Admin only), Password; Department/Team filter; redirect to Manage Users after save |
 | **Vertex UI** | ✓ | Login page; layout (header, sidebar, content); dashboard cards; SmartyEngine layout vars; Team Timesheet card for Manager/Lead |
-| **Milestones, Costing** | ✓ | As before |
+| **Milestones, Costing** | ✓ | **Costing page**: User costing vs Project costing (display only; date range); user cost configured in Manage Users > Edit; **Team Timesheet**: Per-day cost column for Manager |
+| **Security (FR-032–034)** | ✓ | CSRF, SecureHeaders; rate limiting (login 5/min); SECURITY.md; Cookie secure/HTTPS via .env for production; 24h session idle |
 | **Admin Dashboard** | ✓ | Manager + Super Admin; /admin/dashboard; Overall Hours (billable vs non-billable), Work Hours Summary, Resource Allocation by project, Pending Approvers, Financial Summary |
 | **Leave Products** | ✓ | products.product_type; Holiday, Sick Leave, Planned Leave, Training; LeaveProductsSeeder; TaskModel getByAssignee includes leave for all; TimesheetController::log allows leave tasks |
 | **Time Sheet Grid** | ✓ | /timesheet/sheet; daily/weekly/monthly; tasks × days; row/daily/weekly totals; not linked in nav (removed from sidebar, view, index); grid shows "No time entries" when period empty; form_action for date selection |
@@ -374,8 +394,8 @@ As an Employee, I receive rework requests (e.g., task reopened or correction nee
 
 ### UI Design (Vertex Format)
 
-- **FR-028**: Login page: light grey background, centered white card, "Log in to start your session", input fields with icons, Forgot Password link, dark purple Log In button
-- **FR-029**: Main layout: dark purple header (logo, hamburger, notification bell, user dropdown); left sidebar (MAIN NAVIGATION); content area; footer with copyright
-- **FR-030**: Dashboard: cards for Timesheet, Task, Pending Approval (with count for Manager/Lead)
+- **FR-029**: Login page: light grey background, centered white card, "Log in to start your session", input fields with icons, Forgot Password link, dark purple Log In button
+- **FR-030**: Main layout: dark purple header (logo, hamburger, notification bell, user dropdown); left sidebar (MAIN NAVIGATION); content area; footer with copyright
+- **FR-031**: Dashboard: cards for Timesheet, Task, Pending Approval (with count for Manager/Lead)
 
-**Version**: 1.8.1 | **Created**: 2026-02-19 | **Constitution**: v1.8.1 | **Updated**: 2026-02-19 (Timesheet date selection, grid UX fixes)
+**Version**: 1.9.1 | **Created**: 2026-02-19 | **Constitution**: v1.9.1 | **Updated**: 2026-02-20 (User cost in Manage Users; Costing: user vs project; Security; AdminController getMethod fix)

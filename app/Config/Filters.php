@@ -33,6 +33,7 @@ class Filters extends BaseConfig
         'require_employee'              => \App\Filters\RequireEmployeeFilter::class,
         'require_finance_or_manager'     => \App\Filters\RequireFinanceOrManagerFilter::class,
         'require_super_admin'           => \App\Filters\RequireSuperAdminFilter::class,
+        'login_rate_limit'              => \App\Filters\LoginRateLimitFilter::class,
     ];
 
     /**
@@ -43,14 +44,11 @@ class Filters extends BaseConfig
      */
     public array $globals = [
         'before' => [
-            // 'honeypot',
-            // 'csrf',
-            // 'invalidchars',
+            'csrf',
         ],
         'after' => [
             'toolbar',
-            // 'honeypot',
-            // 'secureheaders',
+            'secureheaders',
         ],
     ];
 

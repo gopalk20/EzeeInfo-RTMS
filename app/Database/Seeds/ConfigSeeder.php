@@ -13,6 +13,7 @@ class ConfigSeeder extends Seeder
             ['key' => 'd_plus_n_days', 'value' => '3'],
             ['key' => 'working_days', 'value' => '22'],
             ['key' => 'standard_hours', 'value' => '8'],
+            ['key' => 'session_expiration', 'value' => '86400'], // 24h idle (FR-000a1)
         ];
 
         foreach ($configs as $config) {

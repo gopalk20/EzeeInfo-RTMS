@@ -219,7 +219,12 @@
 | Phase 4 (US3) | Phase 1, 2, 3 | Phase 7 |
 | Phase 5 (US4) | Phase 1, 2, 3 | Phase 7 |
 | Phase 6 (US5) | Phase 1, 2, 3 | Phase 7 |
-| Phase 7 (Polish) | Phases 2–6 | — |
+| Phase 7 (Polish) | Phases 2–6 | Phase 8 |
+| Phase 8 (Workflow) | Phases 1–7 | Phase 9 |
+| Phase 9 (Approval) | Phase 8 | Phase 10 |
+| Phase 10 (Leave, Dashboard) | Phase 9 | Phases 11, 12 |
+| Phase 11 (Security, Cost) | Phase 10 | Phase 12 |
+| Phase 12 (Email) | Phase 11 | — |
 
 ### Recommended Order
 
@@ -230,6 +235,11 @@
 5. **Phase 5** (US4) — reports
 6. **Phase 6** (US5) — rework (can overlap with Phase 5)
 7. **Phase 7** — edge cases, tests
+8. **Phase 8** — timesheet workflow, reporting structure, product/task CRUD
+9. **Phase 9** — approval enhancements (reject, icon buttons)
+10. **Phase 10** — leave products, Admin Dashboard, department filter
+11. **Phase 11** — cloud security, 24h session, URL domain-only, user cost
+12. **Phase 12** — email config, reminders (employee + approver), templates, CLI + cron
 
 ### Parallel Opportunities
 
@@ -239,6 +249,8 @@
 - T019, T020, T021 [P] — US2 migrations
 - T039 [P] — US3 migration
 - T061, T062 [P] — unit tests
+- T110, T111, T112 [P] — Phase 11 security items (can parallel)
+- T120, T123 [P] — Phase 12 email config and templates (can parallel)
 
 ---
 
@@ -315,7 +327,47 @@
 - [x] T105 TimeEntryModel: getBillableNonBillableHours, getMonthlyHoursSummary, getHoursByProduct, getPendingApproversList
 - [x] T106 Team Timesheet: Department filter; TimesheetController teamView accepts ?team=; filter preserved in period buttons, View link, Back link
 - [x] T107 Manage Users: Fix team filter form (remove duplicate team input; preserve search/sort/dir on department change)
+- [x] T108 Time Sheet Grid: remove from sidebar, view.tpl, index.tpl; route /timesheet/sheet still available
+- [x] T109 Timesheet UI: Smarty capitalize fix; form_action (site_url) for date persistence; grid empty state; monthly link preserves month_value
+
+### Phase 11: Cloud Security, Session, URL, User Cost (2026-02-19)
+
+- [x] T110 [Security] Implement cloud security: HTTPS redirect (env), secure cookies (HttpOnly, SameSite; Secure via .env), rate limiting on login (5/min per IP) (FR-032)
+- [x] T111 [Security] CSRF filter enabled; SecureHeaders enabled; XSS prevention (|escape); parameterized queries (FR-033)
+- [x] T112 [Security] Document security practices (encryption, access controls, audit logging, vulnerability reporting) in SECURITY.md for voluntary disclosure (FR-034)
+- [x] T113 [Session] Set session expiration to 24 hours idle (86400 seconds); configurable via config; any page load refreshes session (FR-000a1, Q11.1)
+- [ ] T114 [URL] Browser address bar: display only domain; History API replaceState on navigation; hide internal routes (FR-000a2, Q11.2)
+- [x] T115 [Costing] Super Admin only: Monthly cost in Manage Users > Edit User; store in resource_costs; Costing page displays user vs project costing (no edit) (FR-005c, Q11.3)
+- [x] T116 [Costing] Manager: per-day cost spent per employee in Team Timesheet (view only); per-day = monthly_cost / days_in_month (Jan=31, Apr=30, Feb=28/29) (FR-005c)
+
+### Phase 12: Email Reminders & Configurable Templates (2026-02-19)
+
+- [ ] T120 [Email] Configure email (SMTP); .env for credentials; Admin UI for from/reply-to (FR-035, Q10.1)
+- [ ] T121 [Email] Employee timesheet reminder: weekly (Mon–Fri; missed = any work day fewer than 8h); monthly (last day of month); send to employees who missed (FR-036, Q10.2, Q10.3)
+- [ ] T122 [Email] Approver reminder: consolidated (one email per approver listing all pending); weekly or monthly; configurable frequency (FR-037, Q10.4)
+- [ ] T123 [Email] Migration or config: email_templates table or config keys for subject and body of (a) employee_timesheet_reminder_weekly, (b) employee_timesheet_reminder_monthly, (c) approver_reminder_weekly, (d) approver_reminder_monthly (FR-038)
+- [ ] T124 [Email] Super Admin UI: manage email templates (subject, content); placeholders: employee_name, period, missing_days, approval_count, pending_list, login_url, approval_url (FR-038, Q10.6)
+- [ ] T125 [Cron/CLI] CLI command (e.g., `php spark remind:timesheet`); cron triggers weekly (e.g., Monday AM) and monthly (last day); automatic (FR-035–037, Q10.5)
 
 ---
 
-**Version**: 1.8.0 | **Created**: 2026-02-19 | **Updated**: 2026-02-19 (Leave products, Admin Dashboard, Department filter)
+## Task Summary by Phase
+
+| Phase | Tasks | Status |
+|-------|-------|--------|
+| 1 (Foundation) | T001–T010f | ✓ Complete |
+| 2 (US1) | T011–T018 | Partial |
+| 3 (US2) | T019–T038 | Partial |
+| 4 (US3) | T039–T045 | ✓ Complete |
+| 5 (US4) | T046–T052 | Partial (PDF/Excel TODO) |
+| 6 (US5) | T053–T056 | Partial |
+| 7 (Polish) | T057–T065 | Partial |
+| 8 | T070–T082 | ✓ Complete |
+| 9 | T090–T095 | ✓ Complete |
+| 10 | T100–T109 | ✓ Complete |
+| 11 | T110–T116 | Partial (T114 URL masking TODO) |
+| 12 | T120–T125 | TODO |
+
+---
+
+**Version**: 1.9.1 | **Created**: 2026-02-19 | **Updated**: 2026-02-20 (T115 user cost in Manage Users; Costing redesign)

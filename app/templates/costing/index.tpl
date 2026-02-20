@@ -1,61 +1,69 @@
 {extends file="layout/main.tpl"}
 {block name="content"}
+<div class="content-card">
 <h1>Resource Costing</h1>
-<p style="color:#666; margin-bottom:20px;">Manager only. BR-5: Hourly Cost = Monthly Cost / (Working Days × Standard Hours).</p>
+<p style="color:#666; margin-bottom:20px;">User costing vs Project costing for the selected period. Configure monthly cost per user in <a href="/admin/users">Manage Users</a> &gt; Edit User (Super Admin only).</p>
 
-{if $success}
-    <div class="alert alert-success">{$success|escape}</div>
-{/if}
-{if $error}
-    <div class="alert alert-error">{$error|escape}</div>
-{/if}
+<form method="get" action="/costing" style="margin-bottom: 24px; padding: 16px; background: #f8f8f8; border-radius: 6px;">
+    <label for="from">From:</label>
+    <input type="date" name="from" id="from" value="{$from|escape}" style="margin-right: 16px; padding: 8px;">
+    <label for="to">To:</label>
+    <input type="date" name="to" id="to" value="{$to|escape}" style="margin-right: 16px; padding: 8px;">
+    <button type="submit" class="btn btn-sm">Apply</button>
+</form>
 
-<p>Working Days: {$working_days}, Standard Hours: {$standard_hours}</p>
-
-<table class="data-table" style="width:100%; border-collapse: collapse; margin: 20px 0;">
+<h2 style="margin-top: 32px;">User Costing</h2>
+<p style="color:#666; margin-bottom:12px;">Cost per user for the period (hours × hourly rate). Hourly = Monthly Cost / (Working Days × Standard Hours).</p>
+<table class="data-table" style="width:100%; border-collapse: collapse; margin-bottom: 32px;">
     <thead>
         <tr style="background: #f0f0f0;">
             <th style="padding: 10px;">User</th>
-            <th style="padding: 10px;">Monthly Cost</th>
-            <th style="padding: 10px;">Hourly Cost</th>
-            <th style="padding: 10px;">Action</th>
+            <th style="padding: 10px; text-align: right;">Hours</th>
+            <th style="padding: 10px; text-align: right;">Monthly Cost</th>
+            <th style="padding: 10px; text-align: right;">Hourly Rate</th>
+            <th style="padding: 10px; text-align: right;">Period Cost</th>
         </tr>
     </thead>
     <tbody>
-        {foreach $costs as $c}
+        {foreach $user_costing as $r}
         <tr style="border-bottom: 1px solid #eee;">
-            <td style="padding: 10px;">{$c.first_name|escape} {$c.last_name|escape} ({$c.email|escape})</td>
-            <td style="padding: 10px;">{$c.monthly_cost|escape}</td>
-            <td style="padding: 10px;">{$c.hourly_cost|escape}</td>
-            <td style="padding: 10px;">
-                <form method="post" action="/costing/save" style="display:inline;">
-                    <input type="hidden" name="{$csrf}" value="{$hash}">
-                    <input type="hidden" name="user_id" value="{$c.user_id}">
-                    <input type="number" name="monthly_cost" value="{$c.monthly_cost}" step="0.01" min="0" style="width:100px;">
-                    <button type="submit" class="btn btn-sm">Update</button>
-                </form>
-            </td>
+            <td style="padding: 10px;">{$r.first_name|escape} {$r.last_name|escape} ({$r.email|escape})</td>
+            <td style="padding: 10px; text-align: right;">{$r.total_hours|string_format:"%.1f"}</td>
+            <td style="padding: 10px; text-align: right;">{$r.monthly_cost|string_format:"%.2f"}</td>
+            <td style="padding: 10px; text-align: right;">{$r.hourly_cost|string_format:"%.2f"}</td>
+            <td style="padding: 10px; text-align: right;">{$r.period_cost|string_format:"%.2f"}</td>
         </tr>
         {/foreach}
     </tbody>
 </table>
+{if empty($user_costing)}
+<p style="color:#666;">No time entries in this period.</p>
+{/if}
 
-<h2 style="margin-top:30px;">Add Cost for User</h2>
-<form method="post" action="/costing/save">
-    <input type="hidden" name="{$csrf}" value="{$hash}">
-    <div class="form-group">
-        <label>User</label>
-        <select name="user_id" required>
-            <option value="">-- Select --</option>
-            {foreach $users as $u}
-            <option value="{$u.id}">{$u.email|escape} ({$u.first_name|escape} {$u.last_name|escape})</option>
-            {/foreach}
-        </select>
-    </div>
-    <div class="form-group">
-        <label>Monthly Cost</label>
-        <input type="number" name="monthly_cost" step="0.01" min="0" required>
-    </div>
-    <button type="submit" class="btn">Save</button>
-</form>
+<h2 style="margin-top: 32px;">Project Costing</h2>
+<p style="color:#666; margin-bottom:12px;">Cost per project for the period (sum of user costs attributed to each project).</p>
+<table class="data-table" style="width:100%; border-collapse: collapse;">
+    <thead>
+        <tr style="background: #f0f0f0;">
+            <th style="padding: 10px;">Project</th>
+            <th style="padding: 10px; text-align: right;">Hours</th>
+            <th style="padding: 10px; text-align: right;">Period Cost</th>
+        </tr>
+    </thead>
+    <tbody>
+        {foreach $project_costing as $r}
+        <tr style="border-bottom: 1px solid #eee;">
+            <td style="padding: 10px;">{$r.product_name|escape}</td>
+            <td style="padding: 10px; text-align: right;">{$r.total_hours|string_format:"%.1f"}</td>
+            <td style="padding: 10px; text-align: right;">{$r.period_cost|string_format:"%.2f"}</td>
+        </tr>
+        {/foreach}
+    </tbody>
+</table>
+{if empty($project_costing)}
+<p style="color:#666;">No project time in this period.</p>
+{/if}
+
+<p style="margin-top: 24px;"><a href="/admin/users" class="btn btn-secondary">Manage Users (configure cost)</a></p>
+</div>
 {/block}

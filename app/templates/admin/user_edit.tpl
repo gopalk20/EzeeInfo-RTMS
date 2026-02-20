@@ -9,10 +9,18 @@
     <div class="alert alert-error">{$error|escape}</div>
 {/if}
 
-<p style="color:#666; margin-bottom:20px;">Edit reporting manager, status, or reset password for <strong>{($user.first_name|default:'')|cat:' '|cat:($user.last_name|default:'')|escape}</strong> ({$user.email|escape})</p>
+<p style="color:#666; margin-bottom:20px;">Edit reporting manager, status, monthly cost, or reset password for <strong>{($user.first_name|default:'')|cat:' '|cat:($user.last_name|default:'')|escape}</strong> ({$user.email|escape})</p>
 
 <form method="post" action="/admin/users/edit/{$user.id}" style="max-width: 500px;">
     <input type="hidden" name="{$csrf}" value="{$hash}">
+
+    {if $is_super_admin}
+    <div class="form-group">
+        <label for="monthly_cost">Monthly Cost (Salary)</label>
+        <input type="number" name="monthly_cost" id="monthly_cost" value="{$user.monthly_cost|escape}" step="0.01" min="0" placeholder="0" style="width:100%; padding: 8px 12px;">
+        <span style="color:#666; font-size:0.9em;">Used for per-day cost and billing rate.</span>
+    </div>
+    {/if}
 
     <div class="form-group">
         <label for="reporting_manager_id">Reporting Manager</label>
